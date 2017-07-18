@@ -36,6 +36,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-jdk8', version: '0.14'
     compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: '0.14'
+    compile 'org.apache.kafka:kafka-clients:0.10.2.0'
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.0-M4'
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
     testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.0.0-M4'
