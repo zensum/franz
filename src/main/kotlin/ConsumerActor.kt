@@ -32,7 +32,7 @@ private fun findCommitableOffsets(x: Map<JobId, JobStatus>) = x
         .map { (_, values) ->
             values.sortedBy { (key, _) -> key.second }
                     .takeWhile { (_, status) -> status.isDone() }
-                    .last().first
+                    .lastOrNull()?.first
         }
         .filterNotNull()
         .toMap()
