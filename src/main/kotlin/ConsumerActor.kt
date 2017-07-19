@@ -52,6 +52,8 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
                 .also { bq.drainTo(it) }
                 .toList()
 
+const val POLLING_INTERVAL = 10000
+
 private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                 commandQueue: BlockingQueue<ConsumerCommand>) {
@@ -78,7 +80,7 @@ private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
             }
         }
 
-        val messages = c.poll(10000)
+        val messages = c.poll(POLLING_INTERVAL)
         val newJobStatuses = messages.map { it.jobId() to JobStatus.Incomplete }.toMap()
         jobStatuses += newJobStatuses
 
