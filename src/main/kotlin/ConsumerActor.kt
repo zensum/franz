@@ -78,7 +78,11 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
         return statuses
     }
 
-    c.commitAsync(committableOffsets, { _, exc -> println(exc) })
+    c.commitAsync(committableOffsets, { _, exc ->
+        if (exc != null) {
+            println(exc)
+        }
+    })
     return newJobStatues.removeCommitted(committableOffsets)
 }
 
