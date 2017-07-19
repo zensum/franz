@@ -52,39 +52,68 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
                 .also { bq.drainTo(it) }
                 .toList()
 
-const val POLLING_INTERVAL = 10000
+
+const val POLLING_INTERVAL = 10000L
+
+data class JobStatuses(private val jobStatuses: Map<JobId, JobStatus> = emptyMap<JobId, JobStatus>()) {
+    fun update(updates: Map<JobId, JobStatus>) = copy(jobStatuses = jobStatuses + updates)
+    fun committableOffsets() = findCommitableOffsets(jobStatuses)
+    fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) =
+            jobStatuses.filterKeys { (topicPartition, offset) ->
+                val committedOffset = committed[topicPartition]?.offset() ?: -1
+                offset > committedOffset
+            }.let { copy(jobStatuses = it) }
+    fun addJobs(jobs: Iterable<JobId>) = update(jobs.map { it to JobStatus.Incomplete }.toMap())
+}
+
+private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
+                                      statuses: JobStatuses,
+                                      jobStatusUpdates: Map<JobId, JobStatus>)
+        : JobStatuses {
+
+    val newJobStatues = statuses.update(jobStatusUpdates)
+    val committableOffsets = newJobStatues.committableOffsets()
+
+    if (committableOffsets.isEmpty()) {
+        return statuses
+    }
+
+    c.commitAsync(committableOffsets, { _, exc -> println(exc) })
+    return newJobStatues.removeCommitted(committableOffsets)
+}
+
+private fun <T, U> processJobStatuses(c: KafkaConsumer<T, U>,
+                                      jobStatuses: JobStatuses,
+                                      commands: List<ConsumerCommand>) =
+        processSetJobStatusMessages(commands).let {
+            if (it.isNotEmpty()) {
+                commitFinishedJobs(c, jobStatuses, it)
+            } else {
+                jobStatuses
+            }
+        }
+
+private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
+                                          outQueue: BlockingQueue<ConsumerRecord<T, U>>,
+                                          jobStatuses: JobStatuses) =
+        c.poll(POLLING_INTERVAL).let {
+            val newJobsStatuses = jobStatuses.addJobs(it.map { it.jobId() })
+            outQueue.addAll(it)
+            newJobsStatuses
+        }
 
 private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                 commandQueue: BlockingQueue<ConsumerCommand>) {
-    var jobStatuses = emptyMap<JobId, JobStatus>()
-    while (true) {
+    var jobStatuses = JobStatuses()
+    var shouldStop = false
+    while (!shouldStop) {
         val commands = drainQueue(commandQueue)
-        val shouldStop = processStopCommands(commands)
-        val jobStatusUpdates = processSetJobStatusMessages(commands)
-        val didUpdate = jobStatusUpdates != emptyMap<JobId, JobStatus>()
-        jobStatuses += jobStatusUpdates
-
-        if (shouldStop) {
-            return
-        }
-
-        if (didUpdate) {
-            val committableOffsets = findCommitableOffsets(jobStatuses)
-            c.commitAsync(committableOffsets, { _, exc -> println(exc) })
-            // Remove offsets lower than the committed ones
-            // This probably shouldn't be done for commits lower than
-            jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->
-                val committedOffset = committableOffsets[topicPartition]?.offset() ?: -1
-                offset > committedOffset
-            }
-        }
-
-        val messages = c.poll(POLLING_INTERVAL)
-        val newJobStatuses = messages.map { it.jobId() to JobStatus.Incomplete }.toMap()
-        jobStatuses += newJobStatuses
-
-        outQueue.addAll(messages)
+        shouldStop = processStopCommands(commands)
+        jobStatuses =
+                processJobStatuses(c, jobStatuses, commands).let {
+                    fetchMessagesFromKafka(c, outQueue, it)
+                }
     }
 }
 
