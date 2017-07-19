@@ -1,7 +1,9 @@
 package franz
 
+import mu.KotlinLogging
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.ProducerRecord
+import java.util.*
 
 fun createProducer(host: String) = mapOf(
         "bootstrap.servers" to listOf(host),
@@ -15,24 +17,30 @@ fun createProducer(host: String) = mapOf(
         "retries" to "0"
 ).let { KafkaProducer<String, String>(it) }
 
+val logger = KotlinLogging.logger {}
+
 fun main(args: Array<String>) {
+    val rnd = Random()
     WorkerBuilder()
             .subscribedTo("my-topic")
             .parallelism(1)
             .option("my-option", "some-value")
             .running {
-                println("Do someshit with $key and $value")
-                if (value == "crazy") {
-                    permanentFailure(RuntimeException("yeah"))
-                } else {
-                    success
+                logger.info { "Processed message! $value" }
+                when(value) {
+                    "ThisIsFine" -> if (rnd.nextInt(1) == 1) success else transientFailure(RuntimeException("This is fine!"))
+                    "ThisIsBad" -> permanentFailure(RuntimeException("It was bad"))
+                    else -> success
                 }
             }
             .start()
 
     val p = createProducer("127.0.0.1:9092")
     while(true) {
-        p.send(ProducerRecord("my-topic", "foo", "lol"))
-        Thread.sleep(500)
+        p.send(ProducerRecord("my-topic", "foo", "ThisIsFine"))
+        p.send(ProducerRecord("my-topic", "foo", "ThisIsBad"))
+        p.send(ProducerRecord("my-topic", "foo", "ThisIsGood"))
+        p.flush()
+        Thread.sleep(25)
     }
 }

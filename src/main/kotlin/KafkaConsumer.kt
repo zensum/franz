@@ -13,8 +13,7 @@ private val sensibleDefaults = mapOf(
         "key.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
         "value.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
         "group.id" to "sms-outbound",
-        "enable.auto.commit" to "true",
-        "auto.commit.interval.ms" to "2000",
+        "enable.auto.commit" to "false",
         "acks" to "1",
         "compression.type" to "gzip",
         "timeout.ms" to "5000"

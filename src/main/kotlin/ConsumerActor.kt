@@ -1,10 +1,14 @@
 package franz.internal
+import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
+import org.slf4j.Logger
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
+
+private val logger = KotlinLogging.logger {}
 
 private sealed class ConsumerCommand {
     data class SetJobStatus(val id: Pair<TopicPartition, Long>, val status: JobStatus) : ConsumerCommand()
@@ -16,11 +20,13 @@ sealed class JobStatus {
     data class TransientFailure(val throwable: Throwable) : JobStatus()
     data class PermanentFailure(val throwable: Throwable) : JobStatus()
     object Incomplete : JobStatus()
+    object Retry : JobStatus()
     fun isDone() = when(this) {
         is Success -> true
         is TransientFailure -> false
         is PermanentFailure -> true
         is Incomplete -> false
+        is Retry -> false
     }
 }
 
@@ -55,21 +61,35 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
 
 const val POLLING_INTERVAL = 10000L
 
-data class JobStatuses(private val jobStatuses: Map<JobId, JobStatus> = emptyMap<JobId, JobStatus>()) {
-    fun update(updates: Map<JobId, JobStatus>) = copy(jobStatuses = jobStatuses + updates)
+private fun done(x: Map<JobId, JobStatus>) = x.filterValues { it.isDone() }.keys
+
+private fun <K, V> Map<K, V>.getOrFail(k: K) = get(k)!!
+
+data class JobStatuses<T, U>(
+        private val jobStatuses: Map<JobId, JobStatus> = emptyMap<JobId, JobStatus>(),
+        private val records: Map<JobId, ConsumerRecord<T, U>> = emptyMap()
+) {
+    fun update(updates: Map<JobId, JobStatus>) = copy(
+            jobStatuses = jobStatuses + updates,
+            records = records.filterKeys(done(updates)::contains)
+    )
     fun committableOffsets() = findCommitableOffsets(jobStatuses)
     fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) =
             jobStatuses.filterKeys { (topicPartition, offset) ->
                 val committedOffset = committed[topicPartition]?.offset() ?: -1
                 offset > committedOffset
             }.let { copy(jobStatuses = it) }
-    fun addJobs(jobs: Iterable<JobId>) = update(jobs.map { it to JobStatus.Incomplete }.toMap())
+    private fun changeBatch(jobs: Iterable<JobId>, status: JobStatus) = update(jobs.map { it to status }.toMap())
+    fun addJobs(jobs: Iterable<JobId>) = changeBatch(jobs, JobStatus.Incomplete)
+    fun rescheduleTransientFailures() = jobStatuses.filterValues { it is JobStatus.TransientFailure }.keys.let {
+        changeBatch(it, JobStatus.Retry) to it.map(records::getOrFail)
+    }
 }
 
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
-                                      statuses: JobStatuses,
+                                      statuses: JobStatuses<T, U>,
                                       jobStatusUpdates: Map<JobId, JobStatus>)
-        : JobStatuses {
+        : JobStatuses<T, U> {
 
     val newJobStatues = statuses.update(jobStatusUpdates)
     val committableOffsets = newJobStatues.committableOffsets()
@@ -78,16 +98,17 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
         return statuses
     }
 
-    c.commitAsync(committableOffsets, { _, exc ->
+    logger.info { "Pushing new offsets for ${committableOffsets.count()} partitions" }
+    c.commitAsync(committableOffsets, { res, exc ->
         if (exc != null) {
-            println(exc)
+            logger.error(exc) { "Crashed while committing: $res"}
         }
     })
     return newJobStatues.removeCommitted(committableOffsets)
 }
 
 private fun <T, U> processJobStatuses(c: KafkaConsumer<T, U>,
-                                      jobStatuses: JobStatuses,
+                                      jobStatuses: JobStatuses<T, U>,
                                       commands: List<ConsumerCommand>) =
         processSetJobStatusMessages(commands).let {
             if (it.isNotEmpty()) {
@@ -99,30 +120,50 @@ private fun <T, U> processJobStatuses(c: KafkaConsumer<T, U>,
 
 private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-                                          jobStatuses: JobStatuses) =
+                                          jobStatuses: JobStatuses<T, U>) =
         c.poll(POLLING_INTERVAL).let {
             val newJobsStatuses = jobStatuses.addJobs(it.map { it.jobId() })
-            outQueue.addAll(it)
+            logger.info { "Adding ${it.count()} new tasks from Kafka" }
+            outQueue.putAll(it)
+            logger.debug { "Done adding tasks from kafka" }
             newJobsStatuses
         }
+
+private fun <T> BlockingQueue<T>.putAll(xs: Iterable<T>) = xs.forEach { put(it) }
+
+private fun <T, U> retryTrasientFailures(outQueue: BlockingQueue<ConsumerRecord<T, U>>, jobStatuses: JobStatuses<T, U>) =
+        jobStatuses.rescheduleTransientFailures().let { (newJobStatuses, producerRecs) ->
+            logger.info { "Retrying ${producerRecs.count()} tasks" }
+            outQueue.putAll(producerRecs)
+            newJobStatuses
+        }
+
 
 private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                 commandQueue: BlockingQueue<ConsumerCommand>) {
-    var jobStatuses = JobStatuses()
+    var jobStatuses = JobStatuses<T, U>()
     var shouldStop = false
     while (!shouldStop) {
+        logger.info { "Draining command queue" }
         val commands = drainQueue(commandQueue)
+        logger.info { "processing stop commands" }
         shouldStop = processStopCommands(commands)
+        logger.info { "Processing job statuses" }
         jobStatuses =
                 processJobStatuses(c, jobStatuses, commands).let {
+                    logger.info { "Fetching from Kafka" }
                     fetchMessagesFromKafka(c, outQueue, it)
+                }.let {
+                    logger.info { "Retrying transient failures" }
+                    retryTrasientFailures(outQueue, jobStatuses)
                 }
     }
+    logger.info { "Exiting consumer loop" }
 }
 
-const val COMMAND_QUEUE_DEPTH = 100
-const val MESSAGE_QUEUE_DEPTH = 100
+const val COMMAND_QUEUE_DEPTH = 1000
+const val MESSAGE_QUEUE_DEPTH = 1000
 
 class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
     private val outQueue = ArrayBlockingQueue<ConsumerRecord<T, U>>(MESSAGE_QUEUE_DEPTH)
