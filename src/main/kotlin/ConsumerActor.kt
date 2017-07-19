@@ -29,10 +29,10 @@ typealias JobId = Pair<TopicPartition, Long>
 private fun findCommitableOffsets(x: Map<JobId, JobStatus>) = x
         .toList()
         .groupBy { it.first.first }
-        .map { (partition, values) ->
+        .map { (_, values) ->
             values.sortedBy { (key, _) -> key.second }
                     .takeWhile { (_, status) -> status.isDone() }
-                    .last()?.first
+                    .last().first
         }
         .filterNotNull()
         .toMap()
@@ -42,9 +42,10 @@ private fun processSetJobStatusMessages(cmds: List<ConsumerCommand>) : Map<JobId
         .filter { it is ConsumerCommand.SetJobStatus }
         .map { it as ConsumerCommand.SetJobStatus }
         .map { (id, status) -> mapOf(id to status) }
+        .plusElement(emptyMap()) // reduce needs non-zero cardinality
         .reduce { a, b -> a + b }
 
-private fun processStopCommands(cmds: List<ConsumerCommand>) = cmds.first { it is ConsumerCommand.Stop } != null
+private fun processStopCommands(cmds: List<ConsumerCommand>) = cmds.find { it is ConsumerCommand.Stop } != null
 
 private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
         mutableListOf<T>()
