@@ -18,17 +18,13 @@ private fun <T, U> tryJob(dsl: JobDSL<T, U>, fn: WorkerFunction<T, U>) = try {
     dsl.transientFailure(exc)
 }
 
-private fun <T, U> worker(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) {
-    while (true) {
-        val msg = cons.take()
-        val dsl = JobDSL(msg)
-        val res = tryJob(dsl, fn)
-        cons.setJobStatus(msg.jobId(), res)
-    }
+private fun <T, U> worker(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = cons.subscribe {
+    val dsl = JobDSL(it)
+    val res = tryJob(dsl, fn)
+    cons.setJobStatus(it.jobId(), res)
 }
 
 private fun <T, U> workerThread(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = Thread { worker(cons, fn) }
 
 fun <T, U> createWorkers(n: Int, cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) =
-        (1..n).map { workerThread(cons, fn) }
-                .forEach { it.start() }
+        (1..n).map { workerThread(cons, fn) }.forEach { it.start() }

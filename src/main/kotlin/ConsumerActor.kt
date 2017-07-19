@@ -98,6 +98,11 @@ class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
         createThread().start()
     }
     fun take() = outQueue.take()
+    inline fun subscribe(fn: (ConsumerRecord<T, U>) -> Unit) {
+        while(true) {
+            fn(take())
+        }
+    }
     fun stop() = commandQueue.put(ConsumerCommand.Stop)
     fun setJobStatus(jobId: Pair<TopicPartition, Long>, status: JobStatus) =
             commandQueue.put(ConsumerCommand.SetJobStatus(jobId, status))
