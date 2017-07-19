@@ -3,8 +3,6 @@ package franz.internal
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-private val logger = KotlinLogging.logger {}
-
 class JobDSL<T, U>(rec: ConsumerRecord<T, U>){
     val success = JobStatus.Success
     fun permanentFailure(ex: Throwable) = JobStatus.PermanentFailure(ex)
@@ -24,7 +22,6 @@ private fun <T, U> tryJob(dsl: JobDSL<T, U>, fn: WorkerFunction<T, U>) = try {
 private fun <T, U> worker(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = cons.subscribe {
     val dsl = JobDSL(it)
     val res = tryJob(dsl, fn)
-    logger.info { "Setting ${it.jobId()} to $res" }
     cons.setJobStatus(it.jobId(), res)
 }
 

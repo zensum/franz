@@ -24,11 +24,9 @@ fun main(args: Array<String>) {
     WorkerBuilder()
             .subscribedTo("my-topic")
             .parallelism(1)
-            .option("my-option", "some-value")
             .running {
-                logger.info { "Processed message! $value" }
                 when(value) {
-                    "ThisIsFine" -> if (rnd.nextInt(1) == 1) success else transientFailure(RuntimeException("This is fine!"))
+                    "ThisIsFine" -> if (rnd.nextBoolean()) success else transientFailure(RuntimeException("This is fine!"))
                     "ThisIsBad" -> permanentFailure(RuntimeException("It was bad"))
                     else -> success
                 }
@@ -41,6 +39,6 @@ fun main(args: Array<String>) {
         p.send(ProducerRecord("my-topic", "foo", "ThisIsBad"))
         p.send(ProducerRecord("my-topic", "foo", "ThisIsGood"))
         p.flush()
-        Thread.sleep(25)
+        Thread.sleep(2000)
     }
 }

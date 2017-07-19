@@ -4,9 +4,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
-import org.slf4j.Logger
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.TimeUnit
 
 private val logger = KotlinLogging.logger {}
 
@@ -27,6 +27,10 @@ sealed class JobStatus {
         is PermanentFailure -> true
         is Incomplete -> false
         is Retry -> false
+    }
+    fun mayRetry() = when(this) {
+        is TransientFailure -> true
+        else -> false
     }
 }
 
@@ -69,22 +73,25 @@ data class JobStatuses<T, U>(
         private val jobStatuses: Map<JobId, JobStatus> = emptyMap<JobId, JobStatus>(),
         private val records: Map<JobId, ConsumerRecord<T, U>> = emptyMap()
 ) {
-    fun update(updates: Map<JobId, JobStatus>) = copy(
-            jobStatuses = jobStatuses + updates,
-            records = records.filterKeys(done(updates)::contains)
-    )
+    fun update(updates: Map<JobId, JobStatus>) = copy(jobStatuses = jobStatuses + updates)
     fun committableOffsets() = findCommitableOffsets(jobStatuses)
-    fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) =
-            jobStatuses.filterKeys { (topicPartition, offset) ->
+    fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) = copy(
+            jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->
                 val committedOffset = committed[topicPartition]?.offset() ?: -1
                 offset > committedOffset
-            }.let { copy(jobStatuses = it) }
+            },
+            records = records.filterValues {
+                val committedOffset = committed[it.topicPartition()]?.offset() ?: -1
+                it.offset() > committedOffset
+            }
+    )
+    fun stateCounts() = jobStatuses.values.map { it::class.java.name!! }.groupBy { it }.mapValues { it.value.count() }
     private fun changeBatch(jobs: Iterable<JobId>, status: JobStatus)
             = update(jobs.map { it to status }.toMap())
     fun addJobs(jobs: Iterable<ConsumerRecord<T, U>>) =
             changeBatch(jobs.map { it.jobId() }, JobStatus.Incomplete)
                     .copy(records = records + jobs.map { it.jobId() to it })
-    fun rescheduleTransientFailures() = jobStatuses.filterValues { it is JobStatus.TransientFailure }.keys.let {
+    fun rescheduleTransientFailures() = jobStatuses.filterValues { it.mayRetry() }.keys.let {
         changeBatch(it, JobStatus.Retry) to it.map(records::getOrFail)
     }
 }
@@ -98,7 +105,8 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
     val committableOffsets = newJobStatues.committableOffsets()
 
     if (committableOffsets.isEmpty()) {
-        return statuses
+        logger.info { "No commitable offsets" }
+        return newJobStatues
     }
 
     logger.info { "Pushing new offsets for ${committableOffsets.count()} partitions" }
@@ -128,15 +136,13 @@ private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
             val newJobsStatuses = jobStatuses.addJobs(it)
             logger.info { "Adding ${it.count()} new tasks from Kafka" }
             val remainder = outQueue.offerAll(it)
-            logger.debug { "Done adding tasks from remainder was $remainder" }
+            logger.debug { "Done adding tasks from remainder was ${remainder.count()}" }
             remainder to newJobsStatuses
         }
 
-private fun <T> BlockingQueue<T>.putAll(xs: Iterable<T>) = xs.forEach { put(it) }
-
 private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>) = xs.dropWhile { offer(it) }
 
-private fun <T, U> retryTrasientFailures(outQueue: BlockingQueue<ConsumerRecord<T, U>>, jobStatuses: JobStatuses<T, U>) =
+private fun <T, U> retryTransientFailures(outQueue: BlockingQueue<ConsumerRecord<T, U>>, jobStatuses: JobStatuses<T, U>) =
         jobStatuses.rescheduleTransientFailures().let { (newJobStatuses, producerRecs) ->
             logger.info { "Retrying ${producerRecs.count()} tasks" }
             val remainder = outQueue.offerAll(producerRecs)
@@ -150,14 +156,6 @@ private fun <T, U> processCommandQueue(
 ) =
 drainQueue(commandQueue).let {
     processStopCommands(it) to processJobStatuses(c, jobStatuses, it)
-}
-
-class Trigger {
-    var triggered = false
-    operator fun invoke(b: Boolean) {
-        triggered = triggered || b
-    }
-    fun toBool(): Boolean = triggered
 }
 
 private tailrec fun <T, U> writeRemainder(
@@ -200,37 +198,42 @@ private fun <T, U> createJobsFromRetries(
         outQueue: BlockingQueue<ConsumerRecord<T, U>>,
         commandQueue: BlockingQueue<ConsumerCommand>,
         jobStatuses: JobStatuses<T, U>): Pair<Boolean, JobStatuses<T, U>> {
-    val (remainder, newJobsStatuses) = retryTrasientFailures(outQueue, jobStatuses)
+    val (remainder, newJobsStatuses) = retryTransientFailures(outQueue, jobStatuses)
     return writeRemainder(remainder, c, newJobsStatuses, commandQueue, outQueue)
 }
+
+private fun <T, U> Pair<T, U>.then(fn: (T, U) -> Pair<T, U>) = fn(first, second)
+
+private fun <T, U> consumerIteration(c: KafkaConsumer<T, U>,
+                                     outQueue: BlockingQueue<ConsumerRecord<T, U>>,
+                                     commandQueue: BlockingQueue<ConsumerCommand>,
+                                     oldJobStatuses: JobStatuses<T, U>): Pair<Boolean, JobStatuses<T, U>> =
+        processCommandQueue(c, oldJobStatuses, commandQueue).then { shouldStop, jobStatuses ->
+            val (newStop, newJobs) = createJobsFromKafka(c, outQueue, commandQueue, jobStatuses)
+            (newStop || shouldStop) to newJobs
+        }.then { shouldStop, jobStatuses ->
+            val (newStop, newJobs) = createJobsFromRetries(c, outQueue, commandQueue, jobStatuses)
+            (newStop || shouldStop) to newJobs
+        }
+
 
 private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                 commandQueue: BlockingQueue<ConsumerCommand>) {
     var jobStatuses = JobStatuses<T, U>()
-    val shouldStop = Trigger()
-    while (!shouldStop.toBool()) {
-        val (newShouldStop, newJobStatuses) = processCommandQueue(c, jobStatuses, commandQueue)
-        shouldStop(newShouldStop)
-
-        jobStatuses =
-                newJobStatuses.let {
-                    logger.info { "Fetching from Kafka " }
-                    val (newNewShouldStop, newNewJobStatuses) = createJobsFromKafka(c, outQueue, commandQueue, it)
-                    shouldStop(newNewShouldStop)
-                    newNewJobStatuses
-                }.let {
-                    logger.info { "Retrying transient failures" }
-                    val (newNewShouldStop, newNewJobStatuses) = createJobsFromRetries(c, outQueue, commandQueue, it)
-                    shouldStop(newNewShouldStop)
-                    newNewJobStatuses
-                }
+    var shouldStop = false
+    while (!shouldStop) {
+        consumerIteration(c, outQueue, commandQueue, jobStatuses).let { (newStop, newJobs) ->
+            shouldStop = newStop
+            jobStatuses = newJobs
+            logger.info { newJobs.stateCounts() }
+        }
     }
     logger.info { "Exiting consumer loop" }
 }
 
-const val COMMAND_QUEUE_DEPTH = 10
-const val MESSAGE_QUEUE_DEPTH = 10
+const val COMMAND_QUEUE_DEPTH = 1000
+const val MESSAGE_QUEUE_DEPTH = 1000
 
 class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
     private val outQueue = ArrayBlockingQueue<ConsumerRecord<T, U>>(MESSAGE_QUEUE_DEPTH)
