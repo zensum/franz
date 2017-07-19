@@ -6,7 +6,6 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
-import java.util.concurrent.TimeUnit
 
 private val logger = KotlinLogging.logger {}
 
