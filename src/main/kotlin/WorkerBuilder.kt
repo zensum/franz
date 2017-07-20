@@ -12,6 +12,7 @@ data class WorkerBuilder(private val fn: WorkerFunction<String, String>? = null,
 
     fun running(fn: WorkerFunction<String, String>) = copy(fn = fn)
     fun subscribedTo(topic: String) = copy(topics = topics + topic)
+    fun groupId(id: String) = option("group.id", id)
     fun parallelism(n: Int) = copy(nThreads = n)
     fun option(k: String, v: Any) = options(mapOf(k to v))
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
