@@ -12,8 +12,6 @@ private val logger = KotlinLogging.logger {}
 typealias JobId = Pair<TopicPartition, Long>
 typealias SetJobStatus = Pair<JobId, JobStatus>
 
-private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> = cmds.toMap()
-
 private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
         mutableListOf<T>()
                 .also { bq.drainTo(it) }
@@ -22,16 +20,12 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
 const val POLLING_INTERVAL = 10000L
 
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
-                                      statuses: JobStatuses<T, U>,
-                                      jobStatusUpdates: Map<JobId, JobStatus>)
+                                      statuses: JobStatuses<T, U>)
         : JobStatuses<T, U> {
-
-    val newJobStatues = statuses.update(jobStatusUpdates)
-    val committableOffsets = newJobStatues.committableOffsets()
+    val committableOffsets = statuses.committableOffsets()
 
     if (committableOffsets.isEmpty()) {
-        logger.info { "No commitable offsets" }
-        return newJobStatues
+        return statuses
     }
 
     logger.info { "Pushing new offsets for ${committableOffsets.count()} partitions" }
@@ -40,19 +34,8 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
             logger.error(exc) { "Crashed while committing: $res"}
         }
     })
-    return newJobStatues.removeCommitted(committableOffsets)
+    return statuses.removeCommitted(committableOffsets)
 }
-
-private fun <T, U> processJobStatuses(c: KafkaConsumer<T, U>,
-                                      jobStatuses: JobStatuses<T, U>,
-                                      commands: List<SetJobStatus>) =
-        processSetJobStatusMessages(commands).let {
-            if (it.isNotEmpty()) {
-                commitFinishedJobs(c, jobStatuses, it)
-            } else {
-                jobStatuses
-            }
-        }
 
 private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,
@@ -80,8 +63,13 @@ private fun <T, U> processCommandQueue(
         c: KafkaConsumer<T, U>,
         jobStatuses: JobStatuses<T, U>,
         commandQueue: BlockingQueue<SetJobStatus>
-) =
-        processJobStatuses(c, jobStatuses, drainQueue(commandQueue))
+) = drainQueue(commandQueue).let {
+    if (it.isNotEmpty()) {
+        commitFinishedJobs(c, jobStatuses.update(it.toMap()))
+    } else {
+        jobStatuses
+    }
+}
 
 private fun <T, U> readUntilWritten(toWrite: ConsumerRecord<T, U>,
                                     dest: BlockingQueue<ConsumerRecord<T, U>>,
