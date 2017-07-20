@@ -9,8 +9,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
-data class SetJobStatus(val id: Pair<TopicPartition, Long>, val status: JobStatus)
 typealias JobId = Pair<TopicPartition, Long>
+data class SetJobStatus(val id: JobId, val status: JobStatus)
 
 private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> =
         cmds.map { (id, status) -> id to status }.toMap()
@@ -170,6 +170,6 @@ class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
         }
     }
     fun stop() = runFlag.lazySet(false)
-    fun setJobStatus(jobId: Pair<TopicPartition, Long>, status: JobStatus) =
+    fun setJobStatus(jobId: JobId, status: JobStatus) =
             commandQueue.put(SetJobStatus(jobId, status))
 }
