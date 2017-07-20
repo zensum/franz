@@ -10,10 +10,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 private val logger = KotlinLogging.logger {}
 
 typealias JobId = Pair<TopicPartition, Long>
-data class SetJobStatus(val id: JobId, val status: JobStatus)
+typealias SetJobStatus = Pair<JobId, JobStatus>
 
-private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> =
-        cmds.map { (id, status) -> id to status }.toMap()
+private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> = cmds.toMap()
 
 private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
         mutableListOf<T>()
