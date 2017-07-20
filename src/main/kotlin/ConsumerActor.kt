@@ -32,18 +32,13 @@ sealed class JobStatus {
 
 typealias JobId = Pair<TopicPartition, Long>
 
-private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> = cmds
-        .map { (id, status) -> mapOf(id to status) }
-        .plusElement(emptyMap()) // reduce needs non-zero cardinality
-        .reduce { a, b -> a + b }
-
-
+private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> =
+        cmds.map { (id, status) -> id to status }.toMap()
 
 private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
         mutableListOf<T>()
                 .also { bq.drainTo(it) }
                 .toList()
-
 
 const val POLLING_INTERVAL = 10000L
 
@@ -165,7 +160,6 @@ private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
             override fun next() = Unit
             override fun hasNext(): Boolean = fn()
         }.asSequence()
-
 
 private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 outQueue: BlockingQueue<ConsumerRecord<T, U>>,
