@@ -100,17 +100,6 @@ private fun <T, U> createJobsFromRetries(
     return writeRemainder(remainder, c, newJobsStatuses, commandQueue, outQueue)
 }
 
-private fun <T, U> consumerIteration(c: KafkaConsumer<T, U>,
-                                     outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-                                     commandQueue: BlockingQueue<SetJobStatus>,
-                                     oldJobStatuses: JobStatuses<T, U>): JobStatuses<T, U> =
-        processCommandQueue(c, oldJobStatuses, commandQueue).let {
-            createJobsFromKafka(c, outQueue, commandQueue, it)
-        }.let {
-            createJobsFromRetries(c, outQueue, commandQueue, it)
-        }
-
-
 private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
         object : Iterator<Unit> {
             override fun next() = Unit
@@ -125,7 +114,9 @@ private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 commandQueue: BlockingQueue<SetJobStatus>,
                                 run: () -> Boolean) =
         iterate(run, JobStatuses<T, U>()) {
-            consumerIteration(c, outQueue, commandQueue, it)
+            processCommandQueue(c, it, commandQueue)
+                    .let { createJobsFromKafka(c, outQueue, commandQueue, it) }
+                    .let { createJobsFromRetries(c, outQueue, commandQueue, it) }
         }
 
 const val COMMAND_QUEUE_DEPTH = 1000
