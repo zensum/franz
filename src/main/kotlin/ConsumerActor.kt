@@ -90,7 +90,9 @@ private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>) = xs.dropWhile { offe
 
 private fun <T, U> retryTransientFailures(outQueue: BlockingQueue<ConsumerRecord<T, U>>, jobStatuses: JobStatuses<T, U>) =
         jobStatuses.rescheduleTransientFailures().let { (newJobStatuses, producerRecs) ->
-            logger.info { "Retrying ${producerRecs.count()} tasks" }
+            if (producerRecs.isNotEmpty()) {
+                logger.info { "Retrying ${producerRecs.count()} tasks" }
+            }
             val remainder = outQueue.offerAll(producerRecs)
             remainder to newJobStatuses
         }
