@@ -1,6 +1,5 @@
 package franz.internal
 
-import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 class JobDSL<T, U>(rec: ConsumerRecord<T, U>){
