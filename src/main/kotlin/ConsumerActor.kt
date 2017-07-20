@@ -68,11 +68,11 @@ private fun <T, U> readUntilWritten(toWrite: ConsumerRecord<T, U>,
                                     commandQueue: BlockingQueue<SetJobStatus>,
                                     jobStatuses: JobStatuses<T, U>,
                                     c: KafkaConsumer<T, U>) =
-        sequenceWhile { !dest.offer(toWrite) }.fold(jobStatuses) { acc, _ ->
+        iterate({ !dest.offer(toWrite)}, jobStatuses) {
             if(commandQueue.size == 0) {
                 Thread.sleep(5)
             }
-            processCommandQueue(c, acc, commandQueue)
+            processCommandQueue(c, it, commandQueue)
         }
 
 private tailrec fun <T, U> writeRemainder(
@@ -124,16 +124,16 @@ private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
             override fun hasNext(): Boolean = fn()
         }.asSequence()
 
+private fun <T> iterate(whileFn: () -> Boolean, initialValue: T, fn: (T) -> T) =
+        sequenceWhile(whileFn).fold(initialValue) { acc, _ -> fn(acc) }
+
 private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                 commandQueue: BlockingQueue<SetJobStatus>,
                                 run: () -> Boolean) =
-        sequenceWhile(run).fold(JobStatuses<T, U>()) { acc, _ ->
-            consumerIteration(c, outQueue, commandQueue, acc)
-        }.let {
-            logger.info { "Exiting consumer loop, counts were ${it.stateCounts()}" }
+        iterate(run, JobStatuses<T, U>()) {
+            consumerIteration(c, outQueue, commandQueue, it)
         }
-
 
 const val COMMAND_QUEUE_DEPTH = 1000
 const val MESSAGE_QUEUE_DEPTH = 1000
