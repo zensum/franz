@@ -39,10 +39,6 @@ private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
         c.poll(POLLING_INTERVAL).let {
             logger.info { "Adding ${it.count()} new tasks from Kafka" }
             outQueue.offerAll(it) to jobStatuses.addJobs(it)
-        }.also {
-            if (it.first.count() > 0) {
-                logger.debug { "Done adding tasks from remainder was ${it.first.count()}" }
-            }
         }
 
 private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>) = xs.dropWhile { offer(it) }
