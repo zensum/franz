@@ -82,23 +82,11 @@ private tailrec fun <T, U> writeRemainder(
         writeRemainder(rem.drop(1), c, newJobStatuses, commandQueue, outQueue)
     }
 
-private fun <T, U> createJobsFromKafka(
-        c: KafkaConsumer<T, U>,
-        outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-        commandQueue: BlockingQueue<SetJobStatus>,
-        jobStatuses: JobStatuses<T, U>): JobStatuses<T, U> {
-    val (remainder, newJobsStatuses) = fetchMessagesFromKafka(c, outQueue, jobStatuses)
-    return writeRemainder(remainder, c, newJobsStatuses, commandQueue, outQueue)
-}
-
-private fun <T, U> createJobsFromRetries(
-        c: KafkaConsumer<T, U>,
-        outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-        commandQueue: BlockingQueue<SetJobStatus>,
-        jobStatuses: JobStatuses<T, U>): JobStatuses<T, U> {
-    val (remainder, newJobsStatuses) = retryTransientFailures(outQueue, jobStatuses)
-    return writeRemainder(remainder, c, newJobsStatuses, commandQueue, outQueue)
-}
+private fun <T, U> writeRemainder(prev: Pair<List<ConsumerRecord<T, U>>, JobStatuses<T, U>>,
+                                  c: KafkaConsumer<T, U>,
+                                  commandQueue: BlockingQueue<SetJobStatus>,
+                                  outQueue: BlockingQueue<ConsumerRecord<T, U>>) =
+        writeRemainder(prev.first, c, prev.second, commandQueue, outQueue)
 
 private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
         object : Iterator<Unit> {
@@ -115,8 +103,16 @@ private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 run: () -> Boolean) =
         iterate(run, JobStatuses<T, U>()) {
             processCommandQueue(c, it, commandQueue)
-                    .let { createJobsFromKafka(c, outQueue, commandQueue, it) }
-                    .let { createJobsFromRetries(c, outQueue, commandQueue, it) }
+                    .let {
+                        fetchMessagesFromKafka(c, outQueue, it).let {
+                            writeRemainder(it, c, commandQueue, outQueue)
+                        }
+                    }
+                    .let {
+                        retryTransientFailures(outQueue, it).let {
+                            writeRemainder(it, c, commandQueue, outQueue)
+                        }
+                    }
         }
 
 const val COMMAND_QUEUE_DEPTH = 1000
