@@ -2,7 +2,6 @@ package franz.internal
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
@@ -35,18 +34,6 @@ sealed class JobStatus {
 
 typealias JobId = Pair<TopicPartition, Long>
 
-private fun findCommitableOffsets(x: Map<JobId, JobStatus>) = x
-        .toList()
-        .groupBy { it.first.first }
-        .map { (_, values) ->
-            values.sortedBy { (key, _) -> key.second }
-                    .takeWhile { (_, status) -> status.isDone() }
-                    .lastOrNull()?.first
-        }
-        .filterNotNull()
-        .toMap()
-        .mapValues { (_, v) -> OffsetAndMetadata(v) }
-
 private fun processSetJobStatusMessages(cmds: List<ConsumerCommand>) : Map<JobId, JobStatus> = cmds
         .filter { it is ConsumerCommand.SetJobStatus }
         .map { it as ConsumerCommand.SetJobStatus }
@@ -63,37 +50,6 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
 
 
 const val POLLING_INTERVAL = 10000L
-
-private fun done(x: Map<JobId, JobStatus>) = x.filterValues { it.isDone() }.keys
-
-private fun <K, V> Map<K, V>.getOrFail(k: K) = get(k)!!
-
-data class JobStatuses<T, U>(
-        private val jobStatuses: Map<JobId, JobStatus> = emptyMap<JobId, JobStatus>(),
-        private val records: Map<JobId, ConsumerRecord<T, U>> = emptyMap()
-) {
-    fun update(updates: Map<JobId, JobStatus>) = copy(jobStatuses = jobStatuses + updates)
-    fun committableOffsets() = findCommitableOffsets(jobStatuses)
-    fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) = copy(
-            jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->
-                val committedOffset = committed[topicPartition]?.offset() ?: -1
-                offset > committedOffset
-            },
-            records = records.filterValues {
-                val committedOffset = committed[it.topicPartition()]?.offset() ?: -1
-                it.offset() > committedOffset
-            }
-    )
-    fun stateCounts() = jobStatuses.values.map { it::class.java.name!! }.groupBy { it }.mapValues { it.value.count() }
-    private fun changeBatch(jobs: Iterable<JobId>, status: JobStatus)
-            = update(jobs.map { it to status }.toMap())
-    fun addJobs(jobs: Iterable<ConsumerRecord<T, U>>) =
-            changeBatch(jobs.map { it.jobId() }, JobStatus.Incomplete)
-                    .copy(records = records + jobs.map { it.jobId() to it })
-    fun rescheduleTransientFailures() = jobStatuses.filterValues { it.mayRetry() }.keys.let {
-        changeBatch(it, JobStatus.Retry) to it.map(records::getOrFail)
-    }
-}
 
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
                                       statuses: JobStatuses<T, U>,
