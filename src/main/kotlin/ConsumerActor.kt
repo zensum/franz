@@ -9,9 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
-private sealed class ConsumerCommand {
-    data class SetJobStatus(val id: Pair<TopicPartition, Long>, val status: JobStatus) : ConsumerCommand()
-}
+data class SetJobStatus(val id: Pair<TopicPartition, Long>, val status: JobStatus)
 
 sealed class JobStatus {
     object Success : JobStatus()
@@ -34,12 +32,12 @@ sealed class JobStatus {
 
 typealias JobId = Pair<TopicPartition, Long>
 
-private fun processSetJobStatusMessages(cmds: List<ConsumerCommand>) : Map<JobId, JobStatus> = cmds
-        .filter { it is ConsumerCommand.SetJobStatus }
-        .map { it as ConsumerCommand.SetJobStatus }
+private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> = cmds
         .map { (id, status) -> mapOf(id to status) }
         .plusElement(emptyMap()) // reduce needs non-zero cardinality
         .reduce { a, b -> a + b }
+
+
 
 private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
         mutableListOf<T>()
@@ -73,7 +71,7 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
 
 private fun <T, U> processJobStatuses(c: KafkaConsumer<T, U>,
                                       jobStatuses: JobStatuses<T, U>,
-                                      commands: List<ConsumerCommand>) =
+                                      commands: List<SetJobStatus>) =
         processSetJobStatusMessages(commands).let {
             if (it.isNotEmpty()) {
                 commitFinishedJobs(c, jobStatuses, it)
@@ -105,7 +103,7 @@ private fun <T, U> retryTransientFailures(outQueue: BlockingQueue<ConsumerRecord
 private fun <T, U> processCommandQueue(
         c: KafkaConsumer<T, U>,
         jobStatuses: JobStatuses<T, U>,
-        commandQueue: BlockingQueue<ConsumerCommand>
+        commandQueue: BlockingQueue<SetJobStatus>
 ) =
 drainQueue(commandQueue).let {
     processJobStatuses(c, jobStatuses, it)
@@ -115,7 +113,7 @@ private tailrec fun <T, U> writeRemainder(
         rem: List<ConsumerRecord<T, U>>,
         c: KafkaConsumer<T, U>,
         jobStatuses: JobStatuses<T, U>,
-        commandQueue: BlockingQueue<ConsumerCommand>,
+        commandQueue: BlockingQueue<SetJobStatus>,
         outQueue: BlockingQueue<ConsumerRecord<T, U>>
         ): JobStatuses<T, U> {
     if (rem.size == 0) {
@@ -136,7 +134,7 @@ private tailrec fun <T, U> writeRemainder(
 private fun <T, U> createJobsFromKafka(
         c: KafkaConsumer<T, U>,
         outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-        commandQueue: BlockingQueue<ConsumerCommand>,
+        commandQueue: BlockingQueue<SetJobStatus>,
         jobStatuses: JobStatuses<T, U>): JobStatuses<T, U> {
     val (remainder, newJobsStatuses) = fetchMessagesFromKafka(c, outQueue, jobStatuses)
     return writeRemainder(remainder, c, newJobsStatuses, commandQueue, outQueue)
@@ -145,7 +143,7 @@ private fun <T, U> createJobsFromKafka(
 private fun <T, U> createJobsFromRetries(
         c: KafkaConsumer<T, U>,
         outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-        commandQueue: BlockingQueue<ConsumerCommand>,
+        commandQueue: BlockingQueue<SetJobStatus>,
         jobStatuses: JobStatuses<T, U>): JobStatuses<T, U> {
     val (remainder, newJobsStatuses) = retryTransientFailures(outQueue, jobStatuses)
     return writeRemainder(remainder, c, newJobsStatuses, commandQueue, outQueue)
@@ -153,7 +151,7 @@ private fun <T, U> createJobsFromRetries(
 
 private fun <T, U> consumerIteration(c: KafkaConsumer<T, U>,
                                      outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-                                     commandQueue: BlockingQueue<ConsumerCommand>,
+                                     commandQueue: BlockingQueue<SetJobStatus>,
                                      oldJobStatuses: JobStatuses<T, U>): JobStatuses<T, U> =
         processCommandQueue(c, oldJobStatuses, commandQueue).let {
             createJobsFromKafka(c, outQueue, commandQueue, it)
@@ -171,7 +169,7 @@ private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
 
 private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                                 outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-                                commandQueue: BlockingQueue<ConsumerCommand>,
+                                commandQueue: BlockingQueue<SetJobStatus>,
                                 run: () -> Boolean) =
         sequenceWhile(run).fold(JobStatuses<T, U>()) { acc, _ ->
             consumerIteration(c, outQueue, commandQueue, acc)
@@ -185,7 +183,7 @@ const val MESSAGE_QUEUE_DEPTH = 1000
 
 class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
     private val outQueue = ArrayBlockingQueue<ConsumerRecord<T, U>>(MESSAGE_QUEUE_DEPTH)
-    private val commandQueue = ArrayBlockingQueue<ConsumerCommand>(COMMAND_QUEUE_DEPTH)
+    private val commandQueue = ArrayBlockingQueue<SetJobStatus>(COMMAND_QUEUE_DEPTH)
     private val runFlag = AtomicBoolean(true)
     private fun createThread() =
             Thread({ consumerLoop(kafkaConsumer, outQueue, commandQueue, runFlag::get) })
@@ -200,5 +198,5 @@ class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
     }
     fun stop() = runFlag.lazySet(false)
     fun setJobStatus(jobId: Pair<TopicPartition, Long>, status: JobStatus) =
-            commandQueue.put(ConsumerCommand.SetJobStatus(jobId, status))
+            commandQueue.put(SetJobStatus(jobId, status))
 }
