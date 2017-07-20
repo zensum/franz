@@ -21,21 +21,17 @@ const val POLLING_INTERVAL = 10000L
 
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
                                       statuses: JobStatuses<T, U>)
-        : JobStatuses<T, U> {
-    val committableOffsets = statuses.committableOffsets()
-
-    if (committableOffsets.isEmpty()) {
-        return statuses
-    }
-
-    logger.info { "Pushing new offsets for ${committableOffsets.count()} partitions" }
-    c.commitAsync(committableOffsets, { res, exc ->
-        if (exc != null) {
-            logger.error(exc) { "Crashed while committing: $res"}
+        : JobStatuses<T, U> =
+        statuses.committableOffsets().also {
+            logger.info { "Pushing new offsets for ${it.count()} partitions" }
+            c.commitAsync(it, { res, exc ->
+                if (exc != null) {
+                    logger.error(exc) { "Crashed while committing: $res"}
+                }
+            })
+        }.let {
+            statuses.removeCommitted(it)
         }
-    })
-    return statuses.removeCommitted(committableOffsets)
-}
 
 private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,

@@ -24,16 +24,17 @@ data class JobStatuses<T, U>(
 ) {
     fun update(updates: Map<JobId, JobStatus>) = copy(jobStatuses = jobStatuses + updates)
     fun committableOffsets() = findCommitableOffsets(jobStatuses)
-    fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) = copy(
-            jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->
-                val committedOffset = committed[topicPartition]?.offset() ?: -1
-                offset > committedOffset
-            },
-            records = records.filterValues {
-                val committedOffset = committed[it.topicPartition()]?.offset() ?: -1
-                it.offset() > committedOffset
-            }
-    )
+    fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) = if (committed.isEmpty()) this else
+        copy(
+                jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->
+                    val committedOffset = committed[topicPartition]?.offset() ?: -1
+                    offset > committedOffset
+                },
+                records = records.filterValues {
+                    val committedOffset = committed[it.topicPartition()]?.offset() ?: -1
+                    it.offset() > committedOffset
+                }
+        )
     fun stateCounts() = jobStatuses.values.map { it::class.java.name!! }.groupBy { it }.mapValues { it.value.count() }
     private fun changeBatch(jobs: Iterable<JobId>, status: JobStatus)
             = update(jobs.map { it to status }.toMap())
