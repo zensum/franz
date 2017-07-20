@@ -12,7 +12,6 @@ private fun defaultsFromEnv() = System.getenv("KAFKA_HOST").let {
 private val sensibleDefaults = mapOf(
         "key.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
         "value.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
-        "group.id" to "sms-outbound",
         "enable.auto.commit" to "false",
         "acks" to "1",
         "compression.type" to "gzip",

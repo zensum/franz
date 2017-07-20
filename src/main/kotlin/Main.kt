@@ -23,6 +23,7 @@ fun main(args: Array<String>) {
     val rnd = Random()
     WorkerBuilder()
             .subscribedTo("my-topic")
+            .groupId("test")
             .parallelism(1)
             .running {
                 when(value) {
