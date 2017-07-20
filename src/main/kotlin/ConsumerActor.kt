@@ -10,26 +10,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 private val logger = KotlinLogging.logger {}
 
 data class SetJobStatus(val id: Pair<TopicPartition, Long>, val status: JobStatus)
-
-sealed class JobStatus {
-    object Success : JobStatus()
-    data class TransientFailure(val throwable: Throwable) : JobStatus()
-    data class PermanentFailure(val throwable: Throwable) : JobStatus()
-    object Incomplete : JobStatus()
-    object Retry : JobStatus()
-    fun isDone() = when(this) {
-        is Success -> true
-        is TransientFailure -> false
-        is PermanentFailure -> true
-        is Incomplete -> false
-        is Retry -> false
-    }
-    fun mayRetry() = when(this) {
-        is TransientFailure -> true
-        else -> false
-    }
-}
-
 typealias JobId = Pair<TopicPartition, Long>
 
 private fun processSetJobStatusMessages(cmds: List<SetJobStatus>) : Map<JobId, JobStatus> =
