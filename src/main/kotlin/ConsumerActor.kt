@@ -74,8 +74,7 @@ private fun <T, U> retryTransientFailures(outQueue: BlockingQueue<ConsumerRecord
             if (producerRecs.isNotEmpty()) {
                 logger.info { "Retrying ${producerRecs.count()} tasks" }
             }
-            val remainder = outQueue.offerAll(producerRecs)
-            remainder to newJobStatuses
+            outQueue.offerAll(producerRecs) to newJobStatuses
         }
 
 private fun <T, U> processCommandQueue(
@@ -83,9 +82,19 @@ private fun <T, U> processCommandQueue(
         jobStatuses: JobStatuses<T, U>,
         commandQueue: BlockingQueue<SetJobStatus>
 ) =
-drainQueue(commandQueue).let {
-    processJobStatuses(c, jobStatuses, it)
-}
+        processJobStatuses(c, jobStatuses, drainQueue(commandQueue))
+
+private fun <T, U> readUntilWritten(toWrite: ConsumerRecord<T, U>,
+                                    dest: BlockingQueue<ConsumerRecord<T, U>>,
+                                    commandQueue: BlockingQueue<SetJobStatus>,
+                                    jobStatuses: JobStatuses<T, U>,
+                                    c: KafkaConsumer<T, U>) =
+        sequenceWhile { !dest.offer(toWrite) }.fold(jobStatuses) { acc, _ ->
+            if(commandQueue.size == 0) {
+                Thread.sleep(5)
+            }
+            processCommandQueue(c, acc, commandQueue)
+        }
 
 private tailrec fun <T, U> writeRemainder(
         rem: List<ConsumerRecord<T, U>>,
@@ -97,12 +106,7 @@ private tailrec fun <T, U> writeRemainder(
     if (rem.size == 0) {
         jobStatuses
     } else {
-        val newJobStatuses = sequenceWhile { !outQueue.offer(rem.first()) }.fold(jobStatuses) { acc, _ ->
-            if(commandQueue.size == 0) {
-                Thread.sleep(5)
-            }
-            processCommandQueue(c, acc, commandQueue)
-        }
+        val newJobStatuses = readUntilWritten(rem.first(), outQueue, commandQueue, jobStatuses, c)
         writeRemainder(rem.drop(1), c, newJobStatuses, commandQueue, outQueue)
     }
 
