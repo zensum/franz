@@ -112,21 +112,18 @@ private tailrec fun <T, U> writeRemainder(
         jobStatuses: JobStatuses<T, U>,
         commandQueue: BlockingQueue<SetJobStatus>,
         outQueue: BlockingQueue<ConsumerRecord<T, U>>
-        ): JobStatuses<T, U> {
+        ): JobStatuses<T, U> =
     if (rem.size == 0) {
-        return jobStatuses
-    }
-    val h = rem.first()
-    val t = rem.drop(1)
-    var newJobStatuses = jobStatuses
-    while(!outQueue.offer(h)) {
-        if(commandQueue.size == 0) {
-            Thread.sleep(5)
+        jobStatuses
+    } else {
+        val newJobStatuses = sequenceWhile { !outQueue.offer(rem.first()) }.fold(jobStatuses) { acc, _ ->
+            if(commandQueue.size == 0) {
+                Thread.sleep(5)
+            }
+            processCommandQueue(c, acc, commandQueue)
         }
-        newJobStatuses = processCommandQueue(c, jobStatuses, commandQueue)
+        writeRemainder(rem.drop(1), c, newJobStatuses, commandQueue, outQueue)
     }
-    return writeRemainder(t, c, newJobStatuses, commandQueue, outQueue)
-}
 
 private fun <T, U> createJobsFromKafka(
         c: KafkaConsumer<T, U>,
