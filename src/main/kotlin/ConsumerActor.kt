@@ -63,18 +63,6 @@ private fun <T, U> processCommandQueue(
     }
 }
 
-private fun <T, U> readUntilWritten(toWrite: ConsumerRecord<T, U>,
-                                    dest: BlockingQueue<ConsumerRecord<T, U>>,
-                                    commandQueue: BlockingQueue<SetJobStatus>,
-                                    jobStatuses: JobStatuses<T, U>,
-                                    c: KafkaConsumer<T, U>) =
-        iterate({ !dest.offer(toWrite)}, jobStatuses) {
-            if(commandQueue.size == 0) {
-                Thread.sleep(5)
-            }
-            processCommandQueue(c, it, commandQueue)
-        }
-
 private tailrec fun <T, U> writeRemainder(
         rem: List<ConsumerRecord<T, U>>,
         c: KafkaConsumer<T, U>,
@@ -85,7 +73,12 @@ private tailrec fun <T, U> writeRemainder(
     if (rem.size == 0) {
         jobStatuses
     } else {
-        val newJobStatuses = readUntilWritten(rem.first(), outQueue, commandQueue, jobStatuses, c)
+        val newJobStatuses = iterate({ !outQueue.offer(rem.first()) }, jobStatuses) {
+            if(commandQueue.size == 0) {
+                Thread.sleep(5)
+            }
+            processCommandQueue(c, it, commandQueue)
+        }
         writeRemainder(rem.drop(1), c, newJobStatuses, commandQueue, outQueue)
     }
 
