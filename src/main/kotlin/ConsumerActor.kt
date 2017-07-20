@@ -59,11 +59,12 @@ private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                           jobStatuses: JobStatuses<T, U>) =
         c.poll(POLLING_INTERVAL).let {
-            val newJobsStatuses = jobStatuses.addJobs(it)
             logger.info { "Adding ${it.count()} new tasks from Kafka" }
-            val remainder = outQueue.offerAll(it)
-            logger.debug { "Done adding tasks from remainder was ${remainder.count()}" }
-            remainder to newJobsStatuses
+            outQueue.offerAll(it) to jobStatuses.addJobs(it)
+        }.also {
+            if (it.first.count() > 0) {
+                logger.debug { "Done adding tasks from remainder was ${it.first.count()}" }
+            }
         }
 
 private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>) = xs.dropWhile { offer(it) }
