@@ -17,7 +17,7 @@ fun createProducer(host: String) = mapOf(
         "retries" to "0"
 ).let { KafkaProducer<String, String>(it) }
 
-val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 fun main(args: Array<String>) {
     val rnd = Random()
