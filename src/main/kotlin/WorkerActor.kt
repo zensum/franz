@@ -1,13 +1,20 @@
 package franz.internal
 
+import mu.KLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
+
 
 class JobDSL<T, U>(rec: ConsumerRecord<T, U>){
     val success = JobStatus.Success
-    fun permanentFailure(ex: Throwable) = JobStatus.PermanentFailure(ex)
-    fun transientFailure(ex: Throwable) = JobStatus.TransientFailure(ex)
+    fun permanentFailure(ex: Throwable) = JobStatus.PermanentFailure.also {
+        logger.error("PermanentFailure: ", ex)
+    }
+    fun transientFailure(ex: Throwable) = JobStatus.TransientFailure.also {
+        logger.error("TransientFailure: ", ex)
+    }
     val key = rec.key()!!
     val value = rec.value()!!
+    companion object : KLogging()
 }
 
 typealias WorkerFunction<T, U> = JobDSL<T, U>.() -> JobStatus
