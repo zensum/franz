@@ -1,6 +1,6 @@
 # franz
 
-Franz is a library for building Kafka-based workers in Kotlin
+Franz is a library for building Kafka-based workers in Kotlin.
 
 ```kotlin
 import franz.WorkerBuilder
@@ -15,7 +15,10 @@ fun main(args: Array<String>) {
                 success
             }
             .start()
+}
 ```
+
+`franz` keeps track of what offsets are safe to commit and locally schedules retries for tasks that fail. This makes building a Kafka-based worker as simple as building one on top of a traditional message queue.
 
 ## Getting started
 
