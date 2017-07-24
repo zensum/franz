@@ -12,8 +12,7 @@ private fun defaultsFromEnv() = System.getenv("KAFKA_HOST").let {
 private val sensibleDefaults = mapOf(
         "key.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
         "value.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
-        "enable.auto.commit" to "false",
-        "compression.type" to "gzip",
+        "enable.auto.commit" to "false"
 )
 
 private fun makeConfig(userOpts: Map<String, Any>) =
