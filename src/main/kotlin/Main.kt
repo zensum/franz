@@ -11,9 +11,9 @@ fun createProducer(host: String) = mapOf(
         "value.serializer" to "org.apache.kafka.common.serialization.StringSerializer",
         "acks" to "all",
         "compression.type" to "gzip",
-        "timeout.ms" to "10000",
         "request.timeout.ms" to "10000",
-        "metadata.fetch.timeout.ms" to "5000",
+        "request.timeout.ms" to "10000",
+        "max.block.ms" to "5000",
         "retries" to "0"
 ).let { KafkaProducer<String, String>(it) }
 
