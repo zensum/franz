@@ -20,7 +20,7 @@ private val logger = KotlinLogging.logger {}
 
 fun main(args: Array<String>) {
     val rnd = Random()
-    WorkerBuilder()
+    WorkerBuilder.ofString
             .subscribedTo("my-topic")
             .groupId("test")
             .parallelism(1)

@@ -11,14 +11,13 @@ private fun defaultsFromEnv() = System.getenv("KAFKA_HOST").let {
 
 private val sensibleDefaults = mapOf(
         "key.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
-        "value.deserializer" to "org.apache.kafka.common.serialization.StringDeserializer",
         "enable.auto.commit" to "false"
 )
 
 private fun makeConfig(userOpts: Map<String, Any>) =
         userOpts + sensibleDefaults + defaultsFromEnv()
 
-fun kafkaConsumer(opts: Map<String, Any>, topics: List<String>) =
-        KafkaConsumer<String, String>(makeConfig(opts)).apply {
+fun <T, U> kafkaConsumer(opts: Map<String, Any>, topics: List<String>) =
+        KafkaConsumer<T, U>(makeConfig(opts)).apply {
             subscribe(topics)
         }
