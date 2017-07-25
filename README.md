@@ -9,7 +9,6 @@ fun main(args: Array<String>) {
     WorkerBuilder.ofByteArray
             .subscribedTo("my-topic")
             .groupId("test")
-            .parallelism(1)
             .running {
                 println("I got a message with key $key containing $value")
                 success

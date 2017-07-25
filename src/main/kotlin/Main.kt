@@ -23,7 +23,6 @@ fun main(args: Array<String>) {
     WorkerBuilder.ofString
             .subscribedTo("my-topic")
             .groupId("test")
-            .parallelism(1)
             .running {
                 when(value) {
                     "ThisIsFine" -> if (rnd.nextBoolean()) success else transientFailure(RuntimeException("This is fine!"))
