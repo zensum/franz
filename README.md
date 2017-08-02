@@ -34,3 +34,5 @@ dependencies {
             compile 'com.github.zensum:franz:-SNAPSHOT'
 }
 ```
+
+[![](https://jitpack.io/v/zensum/franz.svg)](https://jitpack.io/#zensum/franz)
