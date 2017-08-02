@@ -33,9 +33,9 @@ apply plugin: "org.junit.platform.gradle.plugin"
 apply plugin: 'com.github.johnrengelman.shadow'
 
 dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-jdk8', version: '0.14'
-    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: '0.14'
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-jdk8', version: '0.17'
+    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: '0.17'
     compile 'io.github.microutils:kotlin-logging:1.4.6'
     compile 'org.apache.kafka:kafka-clients:0.10.2.0'
     runtime 'ch.qos.logback:logback-classic:1.2.3'
