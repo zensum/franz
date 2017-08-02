@@ -29,8 +29,8 @@ class ProducerBuilder<T> private constructor(private val opts: Map<String, Any> 
     fun options(newOpts: Map<String, Any>) = ProducerBuilder<T>(opts + newOpts)
     fun create(): Producer<String, T> = Producer(makeProducer<String, T>(opts))
     companion object {
-        val ofByteArray = ProducerBuilder<ByteArray>().option(valueSerKey, stringSer)
-        val ofString = ProducerBuilder<String>().option(valueSerKey, byteArraySer)
+        val ofByteArray = ProducerBuilder<ByteArray>().option(valueSerKey, byteArraySer)
+        val ofString = ProducerBuilder<String>().option(valueSerKey, stringSer)
     }
 }
 
