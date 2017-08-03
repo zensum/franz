@@ -133,4 +133,14 @@ class JobStateTest {
 
         assertEquals(JobStatus.TransientFailure, status)
     }
+
+    @Test
+    fun testNoNullableConversionNeededWhenStillInProgress() {
+        val job = jobFrom("1")
+        job.asPipe()
+                .confirm { it.isNotEmpty() }
+                .map(Integer::parseInt) // Return type is "Int?"
+                .validate {it == 1} // But function "process" enforces non-nullable type with !!
+                                    // when the job is still in progress.
+    }
 }

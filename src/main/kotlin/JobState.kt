@@ -53,14 +53,14 @@ class JobState<U> internal constructor(val value: U){
     }
 
     private inline fun process(newStatus: JobStatus, predicate: (U) -> Boolean): JobState<U> {
-        if(inProgress() && !predicate(value))
+        if(inProgress() && !predicate(value!!))
             this.status = newStatus
         return this
     }
 
     fun <R> map(transform: (U) -> R?): JobState<R?> {
         val state: JobState<R?> =  when(inProgress()) {
-            true -> JobState(transform(value))
+            true -> JobState(transform(value!!))
             false -> JobState(null)
         }
 
