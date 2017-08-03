@@ -6,6 +6,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 class JobStateTest {
 
@@ -96,15 +97,15 @@ class JobStateTest {
     }
 
     @Test
-    fun testMapException() {
+    fun testMapToNull() {
         val job = jobFrom("1")
 
-        assertFailsWith(IllegalStateException::class) {
-            job.asPipe()
-                    .validate {true}
-                    .validate {false}
-                    .map(Integer::parseInt)
-        }
+        val state = job.asPipe()
+                .validate {true}
+                .validate {false}
+                .map(Integer::parseInt)
+
+        assertNull(state.value)
     }
 
     @Test
