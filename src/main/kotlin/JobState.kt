@@ -58,10 +58,13 @@ class JobState<U> internal constructor(val value: U){
         return this
     }
 
-    fun <R> map(transform: (U) -> R): JobState<R> {
-        if(!inProgress())
-            throw IllegalStateException("Try to perform a map operation on job that is longer in progress")
-        val newVal: R = transform(value)
-        return JobState(newVal)
+    fun <R> map(transform: (U) -> R?): JobState<R?> {
+        val state: JobState<R?> =  when(inProgress()) {
+            true -> JobState(transform(value))
+            false -> JobState(null)
+        }
+
+        state.status = this.status
+        return state
     }
 }
