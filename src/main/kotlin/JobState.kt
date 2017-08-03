@@ -1,4 +1,7 @@
-package franz.internal
+package franz
+
+import franz.internal.JobDSL
+import franz.internal.JobStatus
 
 fun <T, U> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 

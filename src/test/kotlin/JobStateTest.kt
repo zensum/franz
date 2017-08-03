@@ -1,9 +1,9 @@
-package franz.internal
+package franz
 
-import org.apache.kafka.clients.consumer.Consumer
+import franz.internal.JobDSL
+import franz.internal.JobStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
-import org.junit.rules.ExpectedException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
