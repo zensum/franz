@@ -3,9 +3,9 @@ package franz
 import franz.internal.JobDSL
 import franz.internal.JobStatus
 
-fun <T, U> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
+fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
-class JobState<U> internal constructor(val value: U?){
+class JobState<U: Any> internal constructor(val value: U?){
     var status: JobStatus = JobStatus.Incomplete
 
         get() = field
@@ -58,9 +58,9 @@ class JobState<U> internal constructor(val value: U?){
         return this
     }
 
-    fun <R> mapNullable(transform: (U) -> R?): JobState<R?> {
-        val state: JobState<R?> =  when(inProgress() && value != null) {
-            true -> JobState(transform(value!!))
+    fun <R: Any> mapNullable(transform: (U?) -> R): JobState<R> {
+        val state: JobState<R> = when(inProgress()) {
+            true -> JobState(transform(value))
             false -> JobState(null)
         }
 
@@ -68,11 +68,12 @@ class JobState<U> internal constructor(val value: U?){
         return state
     }
 
-    fun <R> map(transform: (U) -> R): JobState<R> {
-        val state: JobState<R> = when(inProgress() && value != null) {
-            true -> JobState(transform(value!!))
-            false -> throw IllegalStateException("")
-        }
+    fun <R: Any> map(transform: (U) -> R): JobState<R> {
+        if(!inProgress())
+            throw IllegalStateException("Trying to perform work that is no longer in progress")
+
+        val transformedVal: R = value?.let(transform) ?: throw NullPointerException("JobState value is null")
+        val state: JobState<R> = JobState(transformedVal)
 
         state.status = this.status
         return state
