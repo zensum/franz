@@ -5,7 +5,6 @@ import franz.internal.JobStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class JobStateTest {
@@ -90,7 +89,7 @@ class JobStateTest {
         val job = jobFrom("1")
         val status = job.asPipe()
                 .validate { true }
-                .map(Integer::parseInt)
+                .mapNullable(Integer::parseInt)
                 .validate { it == 1 }
 
         assertEquals(1, status.value)
@@ -103,7 +102,7 @@ class JobStateTest {
         val state = job.asPipe()
                 .validate {true}
                 .validate {false}
-                .map(Integer::parseInt)
+                .mapNullable(Integer::parseInt)
 
         assertNull(state.value)
     }
@@ -139,7 +138,7 @@ class JobStateTest {
         val job = jobFrom("1")
         job.asPipe()
                 .confirm { it.isNotEmpty() }
-                .map(Integer::parseInt) // Return type is "Int?"
+                .mapNullable(Integer::parseInt) // Return type is "Int?"
                 .validate {it == 1} // But function "process" enforces non-nullable type with !!
                                     // when the job is still in progress.
     }
@@ -147,10 +146,27 @@ class JobStateTest {
     @Test
     fun testNonNullableConversionWithTwoMapsInSequence() {
         val job = jobFrom("1")
-        job.asPipe()
+        val result = job.asPipe()
+                .confirm { it.isNotEmpty() }
+                .mapNullable(Integer::parseInt)
+                // Maps in sequence does however now work so well with mapNullable.
+                // Here a !! is needed to explicitly say it's not null, or we have a compile error.
+                .mapNullable { it!! * 2 }
+                .mapNullable { it!! + 4 }
+                .end { it!! > 0 }
+
+        assertEquals(JobStatus.Success, result)
+    }
+
+    @Test
+    fun testTwoMapsInSequenceWithoutNullables() {
+        val job = jobFrom("1")
+        val result = job.asPipe()
                 .confirm { it.isNotEmpty() }
                 .map(Integer::parseInt)
-                .map { it * 2 } // Maps in sequence does however now work so sell.
-        // Here a !! is needed to explicitly say it's not null, or we have a compile error.
+                .map { it * 2 }
+                .end { it > 0 }
+
+        assertEquals(JobStatus.Success, result)
     }
 }

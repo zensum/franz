@@ -5,7 +5,7 @@ import franz.internal.JobStatus
 
 fun <T, U> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
-class JobState<U> internal constructor(val value: U){
+class JobState<U> internal constructor(val value: U?){
     var status: JobStatus = JobStatus.Incomplete
 
         get() = field
@@ -58,10 +58,20 @@ class JobState<U> internal constructor(val value: U){
         return this
     }
 
-    fun <R> map(transform: (U) -> R?): JobState<R?> {
-        val state: JobState<R?> =  when(inProgress()) {
+    fun <R> mapNullable(transform: (U) -> R?): JobState<R?> {
+        val state: JobState<R?> =  when(inProgress() && value != null) {
             true -> JobState(transform(value!!))
             false -> JobState(null)
+        }
+
+        state.status = this.status
+        return state
+    }
+
+    fun <R> map(transform: (U) -> R): JobState<R> {
+        val state: JobState<R> = when(inProgress() && value != null) {
+            true -> JobState(transform(value!!))
+            false -> throw IllegalStateException("")
         }
 
         state.status = this.status
