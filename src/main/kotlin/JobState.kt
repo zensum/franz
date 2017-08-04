@@ -46,10 +46,13 @@ class JobState<U: Any> internal constructor(val value: U?){
      * */
 
     fun end(predicate: (U) -> Boolean): JobStatus {
-        val state = process(JobStatus.TransientFailure, predicate)
-        if(state.inProgress())
-            state.status = JobStatus.Success
-        return state.status
+        if(inProgress()) {
+            this.status = when(predicate(value!!)) {
+                true -> JobStatus.Success
+                false -> JobStatus.TransientFailure
+            }
+        }
+        return status
     }
 
     private inline fun process(newStatus: JobStatus, predicate: (U) -> Boolean): JobState<U> {
