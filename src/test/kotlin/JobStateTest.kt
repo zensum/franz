@@ -135,12 +135,22 @@ class JobStateTest {
     }
 
     @Test
-    fun testNoNullableConversionNeededWhenStillInProgress() {
+    fun testNonNullableConversionNeededWhenStillInProgress() {
         val job = jobFrom("1")
         job.asPipe()
                 .confirm { it.isNotEmpty() }
                 .map(Integer::parseInt) // Return type is "Int?"
                 .validate {it == 1} // But function "process" enforces non-nullable type with !!
                                     // when the job is still in progress.
+    }
+
+    @Test
+    fun testNonNullableConversionWithTwoMapsInSequence() {
+        val job = jobFrom("1")
+        job.asPipe()
+                .confirm { it.isNotEmpty() }
+                .map(Integer::parseInt)
+                .map { it * 2 } // Maps in sequence does however now work so sell.
+        // Here a !! is needed to explicitly say it's not null, or we have a compile error.
     }
 }
