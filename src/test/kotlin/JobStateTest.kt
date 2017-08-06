@@ -89,7 +89,7 @@ class JobStateTest {
         val job = jobFrom("1")
         val status = job.asPipe()
                 .validate { true }
-                .mapNullable(Integer::parseInt)
+                .map(Integer::parseInt)
                 .validate { it == 1 }
 
         assertEquals(1, status.value)
@@ -102,7 +102,7 @@ class JobStateTest {
         val state = job.asPipe()
                 .validate {true}
                 .validate {false}
-                .mapNullable(Integer::parseInt)
+                .map(Integer::parseInt)
 
         assertNull(state.value)
     }
@@ -134,39 +134,30 @@ class JobStateTest {
     }
 
     @Test
-    fun testNonNullableConversionNeededWhenStillInProgress() {
-        val job = jobFrom("1")
-        job.asPipe()
-                .confirm { it.isNotEmpty() }
-                .mapNullable(Integer::parseInt) // Return type is "Int?"
-                .validate {it == 1} // But function "process" enforces non-nullable type with !!
-                                    // when the job is still in progress.
-    }
-
-    @Test
-    fun testNonNullableConversionWithTwoMapsInSequence() {
-        val job = jobFrom("1")
-        val result = job.asPipe()
-                .confirm { it.isNotEmpty() }
-                .mapNullable(Integer::parseInt)
-                // Maps in sequence does however now work so well with mapNullable.
-                // Here a !! is needed to explicitly say it's not null, or we have a compile error.
-                .mapNullable { it!! * 2 }
-                .mapNullable { it!! + 4 }
-                .end { it!! > 0 }
-
-        assertEquals(JobStatus.Success, result)
-    }
-
-    @Test
-    fun testTwoMapsInSequenceWithoutNullables() {
+    fun testConversionWithTwoMapsInSequence() {
         val job = jobFrom("1")
         val result = job.asPipe()
                 .confirm { it.isNotEmpty() }
                 .map(Integer::parseInt)
                 .map { it * 2 }
+                .map { it + 4 }
+                .validate { it > 1 }
                 .end { it > 0 }
 
         assertEquals(JobStatus.Success, result)
+    }
+
+    @Test
+    fun testConversionWithFailingValidationAndMap() {
+        val job = jobFrom("1")
+        val result = job.asPipe()
+                .confirm { it.isNotEmpty() }
+                .map(Integer::parseInt)
+                .map { it * 2 }
+                .validate { it < 0 } // This should fail and give JobStatus.PermanentFailure
+                .map { it + 4 }
+                .end { it > 0 }
+
+        assertEquals(JobStatus.PermanentFailure, result)
     }
 }

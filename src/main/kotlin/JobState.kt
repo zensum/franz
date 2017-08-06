@@ -62,23 +62,13 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
         return this
     }
 
-    suspend fun <R: Any> mapNullable(transform: (U?) -> R): JobState<R> {
-        val state: JobState<R> = when(inProgress()) {
-            true -> JobState(transform(value))
-            false -> JobState(null)
+    inline fun <R: Any> map(transform: (U) -> R): JobState<R> {
+        val transFormedVal: R? = when(inProgress()) {
+            true -> value?.let(transform)
+            false -> null
         }
 
-        state.status = this.status
-        return state
-    }
-
-    suspend fun <R: Any> map(transform: (U) -> R): JobState<R> {
-        if(!inProgress())
-            throw IllegalStateException("Trying to perform work that is no longer in progress")
-
-        val transformedVal: R = value?.let(transform) ?: throw NullPointerException("JobState value is null")
-        val state: JobState<R> = JobState(transformedVal)
-
+        val state: JobState<R> = JobState(transFormedVal)
         state.status = this.status
         return state
     }
