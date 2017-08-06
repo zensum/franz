@@ -42,7 +42,8 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
      * Use when conducting the final operation on the job. If it successfully done (the predicate returns true)
      * the [JobState] will automatically be set as [JobStatus.Success] and return the [JobStatus] rather than
      * the [JobState] itself, prohibiting that any more work is done on this job through this pipe. The returned
-     * [JobStatus] can never be [JobStatus.Incomplete] when returning from this function.
+     * [JobStatus] can never be [JobStatus.Incomplete] when returning from this function (unless that was the status
+     * prior to this function call).
      * */
 
     inline fun end(predicate: (U) -> Boolean): JobStatus {
