@@ -5,7 +5,7 @@ import franz.internal.JobStatus
 
 fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
-class JobState<U: Any> internal constructor(val value: U?){
+class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
     var status: JobStatus = JobStatus.Incomplete
 
         get() = field
