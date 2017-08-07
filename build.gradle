@@ -10,7 +10,7 @@ description = 'description of project'
 defaultTasks 'run'
 
 buildscript {
-    ext.kotlin_version = '1.1.3'
+    ext.kotlin_version = '1.1.3-2'
     ext.jvm_version = '1.8'
     ext.junit_platform_version = '1.0.0-M4'
     repositories {
@@ -37,7 +37,7 @@ dependencies {
     compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-jdk8', version: '0.17'
     compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: '0.17'
     compile 'io.github.microutils:kotlin-logging:1.4.6'
-    compile 'org.apache.kafka:kafka-clients:0.10.2.0'
+    compile 'org.apache.kafka:kafka-clients:0.11.0.0'
     runtime 'ch.qos.logback:logback-classic:1.2.3'
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.0-M4'
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
@@ -65,7 +65,7 @@ repositories {
     maven { url "http://jcenter.bintray.com" }
 }
 
-compileKotlin {
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     sourceCompatibility = jvm_version
     kotlinOptions {
         jvmTarget = jvm_version

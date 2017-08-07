@@ -39,7 +39,7 @@ private val P2CR3 = CROffsetPartition(2, 3)
 
 private val OTHER_TOPIC_CR1 = CR(ALTERNATE_TOPIC, 1, 1, DEFAULT_KEY, DEFAULT_VALUE)
 
-private val FAILED = JobStatus.TransientFailure(RuntimeException("lol"))
+private val FAILED = JobStatus.TransientFailure
 
 // js is immutable, and JS() its zero value
 private val js = JS()
