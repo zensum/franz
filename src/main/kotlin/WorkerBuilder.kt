@@ -25,8 +25,8 @@ data class WorkerBuilder<T> private constructor(private val fn: WorkerFunction<S
         c.start()
     }
     companion object {
-        val ofByteArray = WorkerBuilder<ByteArray>().option(valueDeserKey, stringDeser)
-        val ofString = WorkerBuilder<String>().option(valueDeserKey, byteArrayDeser)
+        val ofByteArray = WorkerBuilder<ByteArray>().option(valueDeserKey, byteArrayDeser)
+        val ofString = WorkerBuilder<String>().option(valueDeserKey, stringDeser)
     }
 }
 
