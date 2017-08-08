@@ -1,21 +1,31 @@
 package franz.internal
+import kotlinx.coroutines.experimental.channels.Channel
+import kotlinx.coroutines.experimental.channels.ReceiveChannel
+import kotlinx.coroutines.experimental.channels.SendChannel
+import kotlinx.coroutines.experimental.delay
+import kotlinx.coroutines.experimental.runBlocking
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.TimeUnit
+
 
 private val logger = KotlinLogging.logger {}
 
 typealias JobId = Pair<TopicPartition, Long>
 typealias SetJobStatus = Pair<JobId, JobStatus>
 
-private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
+private suspend fun <T> drainCh(ch: ReceiveChannel<T>): List<T> =
         mutableListOf<T>()
-                .also { bq.drainTo(it) }
-                .toList()
+                .also {
+                    // This is not good, the
+                    // item could be consumed
+                    // between isEmpty and receive
+                    while(!ch.isEmpty) {
+                        it.add(ch.receive())
+                    }
+                }.toList()
 
 const val POLLING_INTERVAL = 10000L
 
@@ -34,28 +44,33 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
         }
 
 private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
-                                          outQueue: BlockingQueue<ConsumerRecord<T, U>>,
+                                          outCh: SendChannel<ConsumerRecord<T, U>>,
                                           jobStatuses: JobStatuses<T, U>) =
-        c.poll(POLLING_INTERVAL).let {
-            logger.info { "Adding ${it.count()} new tasks from Kafka" }
-            outQueue.offerAll(it) to jobStatuses.addJobs(it)
-        }
-
-private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>) = xs.dropWhile { offer(it) }
-
-private fun <T, U> retryTransientFailures(outQueue: BlockingQueue<ConsumerRecord<T, U>>, jobStatuses: JobStatuses<T, U>) =
-        jobStatuses.rescheduleTransientFailures().let { (newJobStatuses, producerRecs) ->
-            if (producerRecs.isNotEmpty()) {
-                logger.info { "Retrying ${producerRecs.count()} tasks" }
+        if(!outCh.isClosedForSend) {
+            c.poll(POLLING_INTERVAL).let {
+                logger.info { "Adding ${it.count()} new tasks from Kafka" }
+                outCh.offerAll(it) to jobStatuses.addJobs(it)
             }
-            outQueue.offerAll(producerRecs) to newJobStatuses
-        }
+        } else emptyList<ConsumerRecord<T, U>>() to jobStatuses
 
-private fun <T, U> processCommandQueue(
+
+private fun <T> SendChannel<T>.offerAll(xs: Iterable<T>) = xs.dropWhile { offer(it) }
+
+private fun <T, U> retryTransientFailures(outCh: SendChannel<ConsumerRecord<T, U>>, jobStatuses: JobStatuses<T, U>) =
+        if (!outCh.isClosedForSend)
+            jobStatuses.rescheduleTransientFailures().let { (newJobStatuses, producerRecs) ->
+                if (producerRecs.isNotEmpty()) {
+                    logger.info { "Retrying ${producerRecs.count()} tasks" }
+                }
+                outCh.offerAll(producerRecs) to newJobStatuses
+            }
+        else emptyList<ConsumerRecord<T, U>>() to jobStatuses
+
+private suspend fun <T, U> processCommandQueue(
         c: KafkaConsumer<T, U>,
         jobStatuses: JobStatuses<T, U>,
-        commandQueue: BlockingQueue<SetJobStatus>
-) = drainQueue(commandQueue).let {
+        commandCh: ReceiveChannel<SetJobStatus>
+) = drainCh(commandCh).let {
     if (it.isNotEmpty()) {
         commitFinishedJobs(c, jobStatuses.update(it.toMap()))
     } else {
@@ -63,30 +78,30 @@ private fun <T, U> processCommandQueue(
     }
 }
 
-private tailrec fun <T, U> writeRemainder(
+private suspend tailrec fun <T, U> writeRemainder(
         rem: List<ConsumerRecord<T, U>>,
         c: KafkaConsumer<T, U>,
         jobStatuses: JobStatuses<T, U>,
-        commandQueue: BlockingQueue<SetJobStatus>,
-        outQueue: BlockingQueue<ConsumerRecord<T, U>>
+        commandCh: ReceiveChannel<SetJobStatus>,
+        outCh: SendChannel<ConsumerRecord<T, U>>
         ): JobStatuses<T, U> =
-    if (rem.size == 0) {
+    if (rem.size == 0 || outCh.isClosedForSend) {
         jobStatuses
     } else {
-        val newJobStatuses = iterate({ !outQueue.offer(rem.first()) }, jobStatuses) {
-            if(commandQueue.size == 0) {
-                Thread.sleep(5)
+        val newJobStatuses = iterate({ !outCh.offer(rem.first()) }, jobStatuses) {
+            if(commandCh.isEmpty) {
+                delay(5, TimeUnit.MILLISECONDS)
             }
-            processCommandQueue(c, it, commandQueue)
+            processCommandQueue(c, it, commandCh)
         }
-        writeRemainder(rem.drop(1), c, newJobStatuses, commandQueue, outQueue)
+        writeRemainder(rem.drop(1), c, newJobStatuses, commandCh, outCh)
     }
 
-private fun <T, U> writeRemainder(prev: Pair<List<ConsumerRecord<T, U>>, JobStatuses<T, U>>,
+private suspend fun <T, U> writeRemainder(prev: Pair<List<ConsumerRecord<T, U>>, JobStatuses<T, U>>,
                                   c: KafkaConsumer<T, U>,
-                                  commandQueue: BlockingQueue<SetJobStatus>,
-                                  outQueue: BlockingQueue<ConsumerRecord<T, U>>) =
-        writeRemainder(prev.first, c, prev.second, commandQueue, outQueue)
+                                  commandCh: ReceiveChannel<SetJobStatus>,
+                                  outCh: SendChannel<ConsumerRecord<T, U>>) =
+        writeRemainder(prev.first, c, prev.second, commandCh, outCh)
 
 private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
         object : Iterator<Unit> {
@@ -94,23 +109,22 @@ private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
             override fun hasNext(): Boolean = fn()
         }.asSequence()
 
-private fun <T> iterate(whileFn: () -> Boolean, initialValue: T, fn: (T) -> T) =
+private inline fun <T> iterate(noinline whileFn: () -> Boolean, initialValue: T, fn: (T) -> T) =
         sequenceWhile(whileFn).fold(initialValue) { acc, _ -> fn(acc) }
 
-private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
-                                outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-                                commandQueue: BlockingQueue<SetJobStatus>,
-                                run: () -> Boolean) =
-        iterate(run, JobStatuses<T, U>()) {
-            processCommandQueue(c, it, commandQueue)
+private suspend fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
+                                outCh: SendChannel<ConsumerRecord<T, U>>,
+                                commandCh: ReceiveChannel<SetJobStatus>) =
+        iterate({ !commandCh.isClosedForReceive || !outCh.isClosedForSend }, JobStatuses<T, U>()) {
+            processCommandQueue(c, it, commandCh)
                     .let {
-                        fetchMessagesFromKafka(c, outQueue, it).let {
-                            writeRemainder(it, c, commandQueue, outQueue)
+                        fetchMessagesFromKafka(c, outCh, it).let {
+                            writeRemainder(it, c, commandCh, outCh)
                         }
                     }
                     .let {
-                        retryTransientFailures(outQueue, it).let {
-                            writeRemainder(it, c, commandQueue, outQueue)
+                        retryTransientFailures(outCh, it).let {
+                            writeRemainder(it, c, commandCh, outCh)
                         }
                     }
         }
@@ -119,21 +133,22 @@ const val COMMAND_QUEUE_DEPTH = 1000
 const val MESSAGE_QUEUE_DEPTH = 1000
 
 class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
-    private val outQueue = ArrayBlockingQueue<ConsumerRecord<T, U>>(MESSAGE_QUEUE_DEPTH)
-    private val commandQueue = ArrayBlockingQueue<SetJobStatus>(COMMAND_QUEUE_DEPTH)
-    private val runFlag = AtomicBoolean(true)
+    private val outCh = Channel<ConsumerRecord<T, U>>(MESSAGE_QUEUE_DEPTH)
+    private val commandCh = Channel<SetJobStatus>(COMMAND_QUEUE_DEPTH)
     private fun createThread() =
-            Thread({ consumerLoop(kafkaConsumer, outQueue, commandQueue, runFlag::get) })
-    fun start() {
-        createThread().start()
+            Thread({
+                runBlocking {
+                    consumerLoop(kafkaConsumer, outCh, commandCh)
+                }
+            })
+    fun start() = createThread().start()
+    suspend fun canTake() = !outCh.isClosedForReceive
+    suspend fun take() = outCh.receive()
+    fun requestStop() = outCh.close()
+    fun stop() {
+        requestStop()
+        commandCh.close()
     }
-    fun take() = outQueue.take()
-    inline fun subscribe(fn: (ConsumerRecord<T, U>) -> Unit) {
-        while(true) {
-            fn(take())
-        }
-    }
-    fun stop() = runFlag.lazySet(false)
-    fun setJobStatus(jobId: JobId, status: JobStatus) =
-            commandQueue.put(SetJobStatus(jobId, status))
+    suspend fun setJobStatus(jobId: JobId, status: JobStatus) =
+            commandCh.send(SetJobStatus(jobId, status))
 }

@@ -2,6 +2,7 @@ package franz.internal
 
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.experimental.runBlocking
 import mu.KLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -21,15 +22,21 @@ class JobDSL<T, U>(rec: ConsumerRecord<T, U>){
 
 typealias WorkerFunction<T, U> = suspend JobDSL<T, U>.() -> JobStatus
 
-private fun <T, U> worker(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = cons.subscribe {
-    launch(CommonPool) {
-        val dsl = JobDSL(it)
-        cons.setJobStatus(it.jobId(), try {
-            fn(dsl)
-        } catch (exc: Exception) {
-            dsl.transientFailure(exc)
-        })
+private fun <T, U> worker(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) {
+    runBlocking {
+        while(cons.canTake()) {
+            launch(CommonPool) {
+                val v = cons.take()
+                val dsl = JobDSL(v)
+                cons.setJobStatus(v.jobId(), try {
+                    fn(dsl)
+                } catch (exc: Exception) {
+                    dsl.transientFailure(exc)
+                })
+            }
+        }
     }
 }
+
 
 fun <T, U> createWorker(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = Thread { worker(cons, fn) }
