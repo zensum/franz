@@ -25,8 +25,8 @@ class JobStateTest {
     fun testValidateTrue() {
         val job = jobFrom("1")
         val status = job.asPipe()
-                .validate { true }
-                .validate { true }
+                .require { true }
+                .require { true }
 
         assertEquals(JobStatus.Incomplete, status.status)
     }
@@ -35,9 +35,9 @@ class JobStateTest {
     fun testValidateFalse() {
         val job = jobFrom("1")
         val status = job.asPipe()
-                .validate { true }
-                .validate { false }
-                .validate { true }
+                .require { true }
+                .require { false }
+                .require { true }
 
         assertEquals(JobStatus.PermanentFailure, status.status)
     }
@@ -67,8 +67,8 @@ class JobStateTest {
     fun testConfirmTrue() {
         val job = jobFrom("1")
         val status = job.asPipe()
-                .confirm { true }
-                .confirm { true }
+                .advanceIf { true }
+                .advanceIf { true }
 
         assertEquals(JobStatus.Incomplete, status.status)
     }
@@ -77,9 +77,9 @@ class JobStateTest {
     fun testConfirmFalse() {
         val job = jobFrom("1")
         val status = job.asPipe()
-                .confirm { true }
-                .confirm { false }
-                .confirm { true }
+                .advanceIf { true }
+                .advanceIf { false }
+                .advanceIf { true }
 
         assertEquals(JobStatus.Success, status.status)
     }
@@ -88,9 +88,9 @@ class JobStateTest {
     fun testMapSuccessful() {
         val job = jobFrom("1")
         val status = job.asPipe()
-                .validate { true }
+                .require { true }
                 .map(Integer::parseInt)
-                .validate { it == 1 }
+                .require { it == 1 }
 
         assertEquals(1, status.value)
     }
@@ -100,8 +100,8 @@ class JobStateTest {
         val job = jobFrom("1")
 
         val state = job.asPipe()
-                .validate {true}
-                .validate {false}
+                .require { true }
+                .require { false }
                 .map(Integer::parseInt)
 
         assertNull(state.value)
@@ -112,9 +112,9 @@ class JobStateTest {
         val job = jobFrom("1")
 
         val status = job.asPipe()
-                .validate { true}
+                .require { true}
                 .execute { true }
-                .confirm { true }
+                .advanceIf { true }
                 .end { true }
 
         assertEquals(JobStatus.Success, status)
@@ -125,9 +125,9 @@ class JobStateTest {
         val job = jobFrom("1")
 
         val status = job.asPipe()
-                .validate { true}
+                .require { true}
                 .execute { true }
-                .confirm { true }
+                .advanceIf { true }
                 .end { false }
 
         assertEquals(JobStatus.TransientFailure, status)
@@ -137,11 +137,11 @@ class JobStateTest {
     fun testConversionWithTwoMapsInSequence() {
         val job = jobFrom("1")
         val result = job.asPipe()
-                .confirm { it.isNotEmpty() }
+                .advanceIf { it.isNotEmpty() }
                 .map(Integer::parseInt)
                 .map { it * 2 }
                 .map { it + 4 }
-                .validate { it > 1 }
+                .require { it > 1 }
                 .end { it > 0 }
 
         assertEquals(JobStatus.Success, result)
@@ -151,10 +151,10 @@ class JobStateTest {
     fun testConversionWithFailingValidationAndMap() {
         val job = jobFrom("1")
         val result = job.asPipe()
-                .confirm { it.isNotEmpty() }
+                .advanceIf { it.isNotEmpty() }
                 .map(Integer::parseInt)
                 .map { it * 2 }
-                .validate { it < 0 } // This should fail and give JobStatus.PermanentFailure
+                .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
                 .map { it + 4 }
                 .end { it > 0 }
 

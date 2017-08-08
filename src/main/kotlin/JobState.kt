@@ -21,7 +21,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
      * Use when an operation must succeed or it is considered a permanent failure and should not trigger a retry,
      * like checking the validity of phone number or mail address.
      */
-    inline fun validate(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure, predicate)
+    inline fun require(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure, predicate)
 
     /**
      * Use when an operation may fail in such a why that a retry should be scheduled, like an error that is
@@ -36,7 +36,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
      *  Everything is in its order but the current job should not trigger any further action and resolve
      *  to [JobStatus.Success].
      */
-    inline fun confirm(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate)
+    inline fun advanceIf(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate)
 
     /**
      * Use when conducting the final operation on the job. If it successfully done (the predicate returns true)
