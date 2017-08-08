@@ -2,6 +2,7 @@ package franz
 
 import franz.internal.JobDSL
 import franz.internal.JobStatus
+import kotlinx.coroutines.experimental.runBlocking
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -15,15 +16,17 @@ class JobStateTest {
 
     private fun <U> jobFrom(value: U): JobDSL<String, U> = JobDSL(consumerRecordOfValue(value))
 
+    val jobOne = jobFrom("1")
+
     @Test
     fun testCreateJobState() {
-        val job = jobFrom("1")
+        val job = jobOne
         assertEquals("1", job.asPipe().value)
     }
 
     @Test
     fun testValidateTrue() {
-        val job = jobFrom("1")
+        val job = jobOne
         val status = job.asPipe()
                 .require { true }
                 .require { true }
@@ -33,7 +36,7 @@ class JobStateTest {
 
     @Test
     fun testValidateFalse() {
-        val job = jobFrom("1")
+        val job = jobOne
         val status = job.asPipe()
                 .require { true }
                 .require { false }
@@ -44,7 +47,7 @@ class JobStateTest {
 
     @Test
     fun testExecuteTrue() {
-        val job = jobFrom("1")
+        val job = jobOne
         val status = job.asPipe()
                 .execute { true }
                 .execute { true }
@@ -54,7 +57,7 @@ class JobStateTest {
 
     @Test
     fun testExecuteFalse() {
-        val job = jobFrom("1")
+        val job = jobOne
         val status = job.asPipe()
                 .execute { true }
                 .execute { false }
@@ -65,7 +68,7 @@ class JobStateTest {
 
     @Test
     fun testConfirmTrue() {
-        val job = jobFrom("1")
+        val job = jobOne
         val status = job.asPipe()
                 .advanceIf { true }
                 .advanceIf { true }
@@ -75,7 +78,7 @@ class JobStateTest {
 
     @Test
     fun testConfirmFalse() {
-        val job = jobFrom("1")
+        val job = jobOne
         val status = job.asPipe()
                 .advanceIf { true }
                 .advanceIf { false }
@@ -86,7 +89,7 @@ class JobStateTest {
 
     @Test
     fun testMapSuccessful() {
-        val job = jobFrom("1")
+        val job = jobOne
         val status = job.asPipe()
                 .require { true }
                 .map(Integer::parseInt)
@@ -97,7 +100,7 @@ class JobStateTest {
 
     @Test
     fun testMapToNull() {
-        val job = jobFrom("1")
+        val job = jobOne
 
         val state = job.asPipe()
                 .require { true }
@@ -109,7 +112,7 @@ class JobStateTest {
 
     @Test
     fun testEndSuccessful() {
-        val job = jobFrom("1")
+        val job = jobOne
 
         val status = job.asPipe()
                 .require { true}
@@ -122,7 +125,7 @@ class JobStateTest {
 
     @Test
     fun testEndFailure() {
-        val job = jobFrom("1")
+        val job = jobOne
 
         val status = job.asPipe()
                 .require { true}
@@ -135,7 +138,7 @@ class JobStateTest {
 
     @Test
     fun testConversionWithTwoMapsInSequence() {
-        val job = jobFrom("1")
+        val job = jobOne
         val result = job.asPipe()
                 .advanceIf { it.isNotEmpty() }
                 .map(Integer::parseInt)
@@ -149,7 +152,7 @@ class JobStateTest {
 
     @Test
     fun testConversionWithFailingValidationAndMap() {
-        val job = jobFrom("1")
+        val job = jobOne
         val result = job.asPipe()
                 .advanceIf { it.isNotEmpty() }
                 .map(Integer::parseInt)
