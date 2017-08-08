@@ -6,6 +6,7 @@ import kotlinx.coroutines.experimental.runBlocking
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 
 class JobStateTest {
@@ -162,6 +163,18 @@ class JobStateTest {
                 .end { it > 0 }
 
         assertEquals(JobStatus.PermanentFailure, result)
+    }
+
+    @Test
+    fun testNullaryEndIsSuccess() {
+        val res = jobOne.asPipe().end()
+        assertEquals(JobStatus.Success, res)
+    }
+
+    @Test
+    fun testNullaryEndNonSuccess() {
+        val res = jobOne.asPipe().require { false }.end()
+        assertNotEquals(JobStatus.Success, res)
     }
 
     private suspend fun lolz() = 10
