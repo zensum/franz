@@ -56,6 +56,12 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
         return status
     }
 
+    @JvmName("endNullary")
+    fun end(): JobStatus {
+        this.status = JobStatus.Success
+        return status
+    }
+
     inline fun process(newStatus: JobStatus, predicate: (U) -> Boolean): JobState<U> {
         if(inProgress() && !predicate(value!!))
             this.status = newStatus
