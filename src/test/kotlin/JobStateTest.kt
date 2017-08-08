@@ -160,4 +160,16 @@ class JobStateTest {
 
         assertEquals(JobStatus.PermanentFailure, result)
     }
+
+    private suspend fun lolz() = 10
+
+    @Test
+    fun testInlineMapWorks() {
+        runBlocking {
+            jobOne.asPipe().map { lolz() }
+        }.let {
+            assertEquals(10, it.value)
+        }
+    }
+
 }
