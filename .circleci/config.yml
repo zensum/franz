@@ -2,17 +2,22 @@ version: 2
 jobs:
   build:
     working_directory: ~/franz
+    environment:
+      TERM: dumb
     docker:
       - image: gradle:3.5-jdk8
     steps:
       - checkout
       - restore_cache:
-          key: circleci-franz-{{ checksum "build.gradle" }}
+          keys:
+            - v1-deps-{{ checksum "build.gradle" }}
+            - v1-deps-
       - run: gradle dependencies
       - save_cache:
           paths:
             - ~/.gradle
-          key: circleci-franz-{{ checksum "build.gradle" }}
+            - ~/.m2
+          key: v1-deps-{{ checksum "build.gradle" }}
       - run: gradle build
       - run: gradle test
       - store_test_results:
