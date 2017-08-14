@@ -39,6 +39,12 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
     inline fun advanceIf(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate)
 
     /**
+     * Use for modelling a side-effect which doesn't have a return status. This
+     * function is equivalent to calling require with a function that always returns true.
+     */
+    inline fun sideeffect(fn: (U) -> Unit): JobState<U> = execute { fn(it!!); true }
+
+    /**
      * Use when conducting the final operation on the job. If it successfully done (the predicate returns true)
      * the [JobState] will automatically be set as [JobStatus.Success] and return the [JobStatus] rather than
      * the [JobState] itself, prohibiting that any more work is done on this job through this pipe. The returned

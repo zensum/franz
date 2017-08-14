@@ -5,9 +5,7 @@ import franz.internal.JobStatus
 import kotlinx.coroutines.experimental.runBlocking
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
-import kotlin.test.assertNull
+import kotlin.test.*
 
 class JobStateTest {
 
@@ -175,6 +173,21 @@ class JobStateTest {
     fun testNullaryEndNonSuccess() {
         val res = jobOne.asPipe().require { false }.end()
         assertNotEquals(JobStatus.Success, res)
+    }
+
+    @Test
+    fun testSideeffectCalled() {
+        var effectCalled = false
+        val res = jobOne.asPipe().sideeffect { effectCalled = true }.end()
+        assertEquals(JobStatus.Success, res)
+        assertTrue { effectCalled }
+    }
+
+    @Test
+    fun testSideeffectNotCalled() {
+        var effectCalled = false
+        jobOne.asPipe().require { false }.sideeffect { effectCalled = true }.end()
+        assertFalse { effectCalled }
     }
 
     private suspend fun lolz() = 10
