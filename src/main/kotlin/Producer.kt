@@ -19,7 +19,6 @@ private val sensibleDefaults = mapOf(
 private fun makeConfig(userOpts: Map<String, Any>) = createKafkaConfig(userOpts, sensibleDefaults)
 private fun <K, V> makeProducer(userOpts: Map<String, Any>) = KafkaProducer<K, V>(makeConfig(userOpts))
 
-
 private val stringSer = "org.apache.kafka.common.serialization.StringSerializer"
 private val byteArraySer = "org.apache.kafka.common.serialization.ByteArraySerializer"
 private val valueSerKey = "value.serializer"
@@ -33,7 +32,6 @@ class ProducerBuilder<T> private constructor(private val opts: Map<String, Any> 
         val ofString = ProducerBuilder<String>().option(valueSerKey, stringSer)
     }
 }
-
 
 class Producer<K, V> internal constructor(private val producer: KafkaProducer<K, V>) {
     suspend fun sendRaw(rec: ProducerRecord<K, V>) = producer.sendAsync(rec)

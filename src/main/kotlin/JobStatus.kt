@@ -7,7 +7,7 @@ enum class JobStatus {
     Incomplete,
     Retry;
 
-    fun isDone() = when(this) {
+    fun isDone() = when (this) {
         Success -> true
         TransientFailure -> false
         PermanentFailure -> true

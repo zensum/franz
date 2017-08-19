@@ -2,8 +2,6 @@ package franz
 
 import kotlinx.coroutines.experimental.runBlocking
 import mu.KotlinLogging
-import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.kafka.clients.producer.ProducerRecord
 import java.util.*
 
 private val logger = KotlinLogging.logger {}
@@ -14,7 +12,7 @@ fun main(args: Array<String>) {
             .subscribedTo("my-topic")
             .groupId("test")
             .running {
-                when(value) {
+                when (value) {
                     "ThisIsFine" -> if (rnd.nextBoolean()) success else transientFailure(RuntimeException("This is fine!"))
                     "ThisIsBad" -> permanentFailure(RuntimeException("It was bad"))
                     else -> success

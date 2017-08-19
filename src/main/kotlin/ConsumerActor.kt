@@ -26,7 +26,7 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
             logger.info { "Pushing new offsets for ${it.count()} partitions" }
             c.commitAsync(it, { res, exc ->
                 if (exc != null) {
-                    logger.error(exc) { "Crashed while committing: $res"}
+                    logger.error(exc) { "Crashed while committing: $res" }
                 }
             })
         }.let {
@@ -74,7 +74,7 @@ private tailrec fun <T, U> writeRemainder(
         jobStatuses
     } else {
         val newJobStatuses = iterate({ !outQueue.offer(rem.first()) }, jobStatuses) {
-            if(commandQueue.size == 0) {
+            if (commandQueue.size == 0) {
                 Thread.sleep(5)
             }
             processCommandQueue(c, it, commandQueue)
@@ -129,7 +129,7 @@ class ConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) {
     }
     fun take() = outQueue.take()
     inline fun subscribe(fn: (ConsumerRecord<T, U>) -> Unit) {
-        while(true) {
+        while (true) {
             fn(take())
         }
     }

@@ -116,7 +116,7 @@ class JobStateTest {
         val job = jobOne
 
         val status = job.asPipe()
-                .require { true}
+                .require { true }
                 .execute { true }
                 .advanceIf { true }
                 .end { true }
@@ -129,7 +129,7 @@ class JobStateTest {
         val job = jobOne
 
         val status = job.asPipe()
-                .require { true}
+                .require { true }
                 .execute { true }
                 .advanceIf { true }
                 .end { false }

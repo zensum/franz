@@ -5,8 +5,7 @@ import kotlinx.coroutines.experimental.launch
 import mu.KLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
-
-class JobDSL<T, U>(rec: ConsumerRecord<T, U>){
+class JobDSL<T, U>(rec: ConsumerRecord<T, U>) {
     val success = JobStatus.Success
     fun permanentFailure(ex: Throwable) = JobStatus.PermanentFailure.also {
         logger.error("PermanentFailure: ", ex)

@@ -5,13 +5,13 @@ import franz.internal.JobStatus
 
 fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
-class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
+class JobState<U: Any> @PublishedApi internal constructor(val value: U?) {
     var status: JobStatus = JobStatus.Incomplete
 
         get() = field
 
         set(value) {
-            if(status == JobStatus.Incomplete)
+            if (status == JobStatus.Incomplete)
                 field = value
         }
 
@@ -47,8 +47,8 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
      * */
 
     inline fun end(predicate: (U) -> Boolean): JobStatus {
-        if(inProgress()) {
-            this.status = when(predicate(value!!)) {
+        if (inProgress()) {
+            this.status = when (predicate(value!!)) {
                 true -> JobStatus.Success
                 false -> JobStatus.TransientFailure
             }
@@ -63,13 +63,13 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
     }
 
     inline fun process(newStatus: JobStatus, predicate: (U) -> Boolean): JobState<U> {
-        if(inProgress() && !predicate(value!!))
+        if (inProgress() && !predicate(value!!))
             this.status = newStatus
         return this
     }
 
     inline fun <R: Any> map(transform: (U) -> R): JobState<R> {
-        val transFormedVal: R? = when(inProgress()) {
+        val transFormedVal: R? = when (inProgress()) {
             true -> value?.let(transform)
             false -> null
         }

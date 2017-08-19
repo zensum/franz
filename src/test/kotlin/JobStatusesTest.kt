@@ -56,7 +56,7 @@ class JobStatusesTest {
     @Test
     fun testAddingJob() {
         js.addJobs(listOf(CR1)).let {
-            assertNotEquals(js, it,"Adding a record should modify JS")
+            assertNotEquals(js, it, "Adding a record should modify JS")
         }
     }
     @Test
