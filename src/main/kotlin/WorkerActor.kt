@@ -13,7 +13,10 @@ class JobDSL<T, U>(rec: ConsumerRecord<T, U>) {
     fun transientFailure(ex: Throwable) = JobStatus.TransientFailure.also {
         logger.error("TransientFailure: ", ex)
     }
-    val key = rec.key()!!
+    private val keyInner = rec.key()
+    val key = lazy { keyInner!! }
+    fun keySet() = keyInner != null
+
     val value = rec.value()!!
     companion object : KLogging()
 }
