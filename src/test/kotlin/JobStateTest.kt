@@ -178,7 +178,7 @@ class JobStateTest {
     @Test
     fun testSideeffectCalled() {
         var effectCalled = false
-        val res = jobOne.asPipe().sideeffect { effectCalled = true }.end()
+        val res = jobOne.asPipe().sideEffect { effectCalled = true }.end()
         assertEquals(JobStatus.Success, res)
         assertTrue { effectCalled }
     }
@@ -186,7 +186,7 @@ class JobStateTest {
     @Test
     fun testSideeffectNotCalled() {
         var effectCalled = false
-        jobOne.asPipe().require { false }.sideeffect { effectCalled = true }.end()
+        jobOne.asPipe().require { false }.sideEffect { effectCalled = true }.end()
         assertFalse { effectCalled }
     }
 

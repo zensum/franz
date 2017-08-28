@@ -42,7 +42,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?){
      * Use for modelling a side-effect which doesn't have a return status. This
      * function is equivalent to calling require with a function that always returns true.
      */
-    inline fun sideeffect(fn: (U) -> Unit): JobState<U> = execute { fn(it!!); true }
+    inline fun sideEffect(fn: (U) -> Unit): JobState<U> = execute { fn(it!!); true }
 
     /**
      * Use when conducting the final operation on the job. If it successfully done (the predicate returns true)
