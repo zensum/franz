@@ -201,4 +201,40 @@ class JobStateTest {
         }
     }
 
+    @Test
+    fun testRequireWithLogMessage() {
+        val state = jobOne.asPipe()
+            .require("This is a log message") { false }
+            .end()
+
+        assertEquals(JobStatus.PermanentFailure, state)
+    }
+
+    @Test
+    fun testExecuteWithLogMessage() {
+        val state = jobOne.asPipe()
+            .execute("This is a log message") { false }
+            .end()
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testAdvanceIfWithLogMessage() {
+        val state = jobOne.asPipe()
+            .advanceIf("This is a log message") { false }
+            .end()
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testWithNullAsLogMessage() {
+        val state = jobOne.asPipe()
+            .process(JobStatus.TransientFailure, {false}, null)
+            .end()
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
 }
