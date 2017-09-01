@@ -76,14 +76,9 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?) {
     inline fun process(newStatus: JobStatus, predicate: (U) -> Boolean, msg: String? = null): JobState<U> {
         if (inProgress() && !predicate(value!!)) {
             this.status = newStatus
-            (msg ?: functionRef()).let { log.debug("Failed on: $it") }
+            msg?.let { log.debug("Failed on: $it") }
         }
         return this
-    }
-
-    fun functionRef(): String {
-        val stackTrace = Thread.currentThread().stackTrace.asList()
-        return stackTrace[2].toString()
     }
 
     inline fun <R: Any> map(transform: (U) -> R): JobState<R> {
