@@ -64,12 +64,14 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?) {
                 false -> JobStatus.TransientFailure
             }
         }
+        log.debug { "Ended with status ${this.status.name}" }
         return status
     }
 
     @JvmName("endNullary")
     fun end(): JobStatus {
         this.status = JobStatus.Success
+        log.debug { "Ended with status ${this.status.name}" }
         return status
     }
 
