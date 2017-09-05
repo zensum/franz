@@ -204,7 +204,7 @@ class JobStateTest {
     @Test
     fun testRequireWithLogMessage() {
         val state = jobOne.asPipe()
-            .require("This predicate is true") { false }
+            .require("This predicate must be true") { false }
             .end()
 
         assertEquals(JobStatus.PermanentFailure, state)
@@ -213,7 +213,7 @@ class JobStateTest {
     @Test
     fun testExecuteWithLogMessage() {
         val state = jobOne.asPipe()
-            .execute("This predicate is true") { false }
+            .execute("This predicate must be true") { false }
             .end()
 
         assertEquals(JobStatus.TransientFailure, state)
@@ -222,7 +222,7 @@ class JobStateTest {
     @Test
     fun testAdvanceIfWithLogMessage() {
         val state = jobOne.asPipe()
-            .advanceIf("This predicate is true") { false }
+            .advanceIf("This predicate must be true") { false }
             .end()
 
         assertEquals(JobStatus.Success, state)
