@@ -1,5 +1,6 @@
 package franz
 
+import franz.engine.ConsumerActorFactory
 import franz.engine.kafka_one.KafkaConsumerActorFactory
 
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"

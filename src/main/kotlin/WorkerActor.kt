@@ -1,5 +1,6 @@
 package franz
 
+import franz.engine.ConsumerActor
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.launch
 

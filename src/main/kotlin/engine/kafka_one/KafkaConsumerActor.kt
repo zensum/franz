@@ -1,7 +1,7 @@
 package franz.engine.kafka_one
-import franz.ConsumerActor
 import franz.JobStatus
 import franz.Message
+import franz.engine.ConsumerActor
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
