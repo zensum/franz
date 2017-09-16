@@ -1,4 +1,5 @@
 package franz.internal
+import franz.JobStatus
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
