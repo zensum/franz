@@ -1,7 +1,6 @@
 package franz
 
 import franz.internal.JobDSL
-import franz.internal.JobStatus
 import mu.KotlinLogging
 
 val log = KotlinLogging.logger("job")

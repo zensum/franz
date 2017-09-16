@@ -17,13 +17,14 @@ private fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>): WorkerFunction<T,
     fn(JobState(it))
 }
 
-
-data class WorkerBuilder<T> private constructor(private val fn: WorkerFunction<String, T>? = null,
-                         private val opts: Map<String, Any> = emptyMap(),
-                         private val topics: List<String> = emptyList()) {
+data class WorkerBuilder<T> private constructor(
+    private val fn: WorkerFunction<String, T>? = null,
+    private val opts: Map<String, Any> = emptyMap(),
+    private val topics: List<String> = emptyList(),
+    private val engine: ConsumerActorFactory = KafkaConsumerActorFactory) {
 
     fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
-    @Deprecated("Use piped or running instead")
+    @Deprecated("Use piped or handler instead")
     fun running(fn: RunningFunction<String, T>) = handler(runningWorker(fn))
     fun handlePiped(fn: PipedWorkerFunction<String, T>) = handler(pipedWorker(fn))
     fun subscribedTo(vararg newTopics: String) = copy(topics = topics + newTopics)
@@ -32,7 +33,7 @@ data class WorkerBuilder<T> private constructor(private val fn: WorkerFunction<S
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
 
     fun start() {
-        val c = ConsumerActor<String, T>(kafkaConsumer(opts, topics))
+        val c = engine.create<String, T>(opts, topics)
         val th = createWorker(c, fn!!)
         th.start()
         c.start()
