@@ -4,8 +4,6 @@ import kotlinx.coroutines.experimental.runBlocking
 import mu.KotlinLogging
 import java.util.*
 
-private val logger = KotlinLogging.logger {}
-
 fun main(args: Array<String>) {
     val rnd = Random()
     WorkerBuilder.ofString
@@ -26,7 +24,7 @@ fun main(args: Array<String>) {
         .groupId("test2")
         .handlePiped {
             it
-                .require("It can't be bad") { it.value() != "ThisIsBad"}
+                .require("It can't be bad") { it.value() != "ThisIsBad" }
                 .execute("It doesn't always work") { it.value() == "ThisIsFine" && rnd.nextBoolean() }
                 .end()
         }

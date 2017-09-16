@@ -1,4 +1,4 @@
-package franz.internal
+package franz
 
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.OffsetAndMetadata

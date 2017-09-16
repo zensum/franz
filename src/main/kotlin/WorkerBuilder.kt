@@ -1,7 +1,5 @@
 package franz
 
-import franz.internal.*
-
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"
 private val byteArrayDeser = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
 private val valueDeserKey = "value.deserializer"

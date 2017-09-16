@@ -1,5 +1,4 @@
 package franz
-import franz.internal.createKafkaConfig
 import kotlinx.coroutines.experimental.future.await
 import org.apache.kafka.clients.producer.Callback
 import org.apache.kafka.clients.producer.KafkaProducer

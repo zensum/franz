@@ -1,7 +1,4 @@
-package franz.internal
-
-import franz.JobStatus
-import franz.Message
+package franz
 
 interface ConsumerActor<T, U> {
     fun start()

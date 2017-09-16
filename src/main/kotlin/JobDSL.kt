@@ -1,7 +1,5 @@
-package franz.internal
+package franz
 
-import franz.JobStatus
-import franz.Message
 import mu.KLogging
 
 class JobDSL<T, U>(rec: Message<T, U>) {

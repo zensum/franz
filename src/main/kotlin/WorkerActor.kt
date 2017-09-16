@@ -1,7 +1,5 @@
-package franz.internal
+package franz
 
-import franz.JobStatus
-import franz.Message
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.launch
 

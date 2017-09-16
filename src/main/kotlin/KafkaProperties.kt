@@ -1,4 +1,4 @@
-package franz.internal
+package franz
 
 private fun defaultsFromEnv() = System.getenv("KAFKA_HOST").let {
     if (it.isNullOrEmpty())

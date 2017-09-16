@@ -1,7 +1,7 @@
 package franz
 
-import franz.internal.JobDSL
-import franz.internal.JobStatus
+import franz.JobDSL
+import franz.JobStatus
 import kotlinx.coroutines.experimental.runBlocking
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
@@ -231,7 +231,7 @@ class JobStateTest {
     @Test
     fun testWithNullAsLogMessage() {
         val state = jobOne.asPipe()
-            .process(JobStatus.TransientFailure, {false}, null)
+            .process(JobStatus.TransientFailure, { false }, null)
             .end()
 
         assertEquals(JobStatus.TransientFailure, state)

@@ -1,6 +1,5 @@
-package franz.internal
+package franz
 
-import franz.Message
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 class KafkaMessage<T, U>(private val rec: ConsumerRecord<T, U>) : Message<T, U> {
