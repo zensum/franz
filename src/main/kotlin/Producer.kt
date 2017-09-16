@@ -1,4 +1,7 @@
 package franz
+
+// This producer has a hard dependency that needs fixing.
+import franz.engine.kafka_one.createKafkaConfig
 import kotlinx.coroutines.experimental.future.await
 import org.apache.kafka.clients.producer.Callback
 import org.apache.kafka.clients.producer.KafkaProducer

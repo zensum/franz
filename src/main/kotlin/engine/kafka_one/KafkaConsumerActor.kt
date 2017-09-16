@@ -1,4 +1,7 @@
-package franz
+package franz.engine.kafka_one
+import franz.ConsumerActor
+import franz.JobStatus
+import franz.Message
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -136,10 +139,5 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     }
     override fun stop() = runFlag.lazySet(false)
     override fun setJobStatus(message: Message<T, U>, status: JobStatus) =
-        commandQueue.put(SetJobStatus(message.jobId(), status))
-}
-
-object KafkaConsumerActorFactory : ConsumerActorFactory {
-    override fun <T, U> create(opts: Map<String, Any>, topics: List<String>): ConsumerActor<T, U> =
-        KafkaConsumerActor(opts, topics)
+        commandQueue.put(SetJobStatus((message as KafkaMessage).jobId(), status))
 }

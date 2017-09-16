@@ -1,4 +1,4 @@
-package franz
+package franz.engine.kafka_one
 
 import org.apache.kafka.clients.consumer.KafkaConsumer
 

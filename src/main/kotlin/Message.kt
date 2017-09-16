@@ -5,5 +5,4 @@ interface Message<out K, out V> {
     fun headers(): Array<Pair<String, ByteArray>>
     fun headers(key: String): Array<ByteArray>
     fun key(): K
-    fun jobId(): JobId
 }

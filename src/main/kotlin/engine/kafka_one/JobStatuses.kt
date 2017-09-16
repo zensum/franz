@@ -1,5 +1,6 @@
-package franz
+package franz.engine.kafka_one
 
+import franz.JobStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
