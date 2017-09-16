@@ -21,13 +21,13 @@ class TestMessage<T>(private val value: T) : Message<String, T> {
 }
 
 class JobStateTest {
-    private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(value)
+    private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(TestMessage(value))
     val jobOne = jobFrom("1")
 
     @Test
     fun testCreateJobState() {
         val job = jobOne
-        assertEquals("1", job.value)
+        assertEquals("1", job.value!!.value())
     }
 
     @Test
@@ -97,9 +97,10 @@ class JobStateTest {
     fun testMapSuccessful() {
         val job = jobOne
         val status = job
-                .require { true }
-                .map(Integer::parseInt)
-                .require { it == 1 }
+            .require { true }
+            .map { it.value() }
+            .map(Integer::parseInt)
+            .require { it == 1 }
 
         assertEquals(1, status.value)
     }
@@ -109,9 +110,10 @@ class JobStateTest {
         val job = jobOne
 
         val state = job
-                .require { true }
-                .require { false }
-                .map(Integer::parseInt)
+            .require { true }
+            .require { false }
+            .map { it.value() }
+            .map(Integer::parseInt)
 
         assertNull(state.value)
     }
@@ -146,12 +148,13 @@ class JobStateTest {
     fun testConversionWithTwoMapsInSequence() {
         val job = jobOne
         val result = job
-                .advanceIf { it.isNotEmpty() }
-                .map(Integer::parseInt)
-                .map { it * 2 }
-                .map { it + 4 }
-                .require { it > 1 }
-                .end { it > 0 }
+            .advanceIf { it.value().isNotEmpty() }
+            .map { it.value() }
+            .map(Integer::parseInt)
+            .map { it * 2 }
+            .map { it + 4 }
+            .require { it > 1 }
+            .end { it > 0 }
 
         assertEquals(JobStatus.Success, result)
     }
@@ -160,12 +163,13 @@ class JobStateTest {
     fun testConversionWithFailingValidationAndMap() {
         val job = jobOne
         val result = job
-                .advanceIf { it.isNotEmpty() }
-                .map(Integer::parseInt)
-                .map { it * 2 }
-                .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
-                .map { it + 4 }
-                .end { it > 0 }
+            .map { it.value() }
+            .advanceIf { it.isNotEmpty() }
+            .map(Integer::parseInt)
+            .map { it * 2 }
+            .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
+            .map { it + 4 }
+            .end { it > 0 }
 
         assertEquals(JobStatus.PermanentFailure, result)
     }
