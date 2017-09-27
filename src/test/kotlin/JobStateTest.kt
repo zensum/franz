@@ -18,6 +18,10 @@ class TestMessage<T>(private val value: T) : Message<String, T> {
     override fun headers(key: String): Array<ByteArray> {
         throw NotImplementedError()
     }
+
+    override fun topic(): String {
+        throw NotImplementedError()
+    }
 }
 
 class JobStateTest {
