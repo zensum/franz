@@ -29,6 +29,7 @@ data class WorkerBuilder<T> private constructor(
     fun running(fn: RunningFunction<String, T>) = handler(runningWorker(fn))
     fun handlePiped(fn: PipedWorkerFunction<String, T>) = handler(pipedWorker(fn))
     fun subscribedTo(vararg newTopics: String) = copy(topics = topics + newTopics)
+    fun subscribedTo(topics: Collection<String>): WorkerBuilder<T> = merge(this, topics.toTypedArray())
     fun groupId(id: String) = option("group.id", id)
     fun option(k: String, v: Any) = options(mapOf(k to v))
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
@@ -39,6 +40,14 @@ data class WorkerBuilder<T> private constructor(
         th.start()
         c.start()
     }
+
+    private tailrec fun merge(builder: WorkerBuilder<T>, topics: Array<String>, i: Int = 0): WorkerBuilder<T> {
+        return when(i > topics.lastIndex) {
+            true -> builder
+            false -> merge(builder.subscribedTo(topics[i]), topics, i+1)
+        }
+    }
+
     companion object {
         val ofByteArray = WorkerBuilder<ByteArray>().option(valueDeserKey, byteArrayDeser)
         val ofString = WorkerBuilder<String>().option(valueDeserKey, stringDeser)
