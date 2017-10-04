@@ -4,14 +4,15 @@ Franz is a library for building Kafka-based workers in Kotlin.
 
 ```kotlin
 import franz.WorkerBuilder
+import franz.JobStatus
 
 fun main(args: Array<String>) {
     WorkerBuilder.ofByteArray
             .subscribedTo("my-topic")
             .groupId("test")
-            .running {
+            .handler {
                 println("I got a message with key $key containing $value")
-                success
+                JobStatus.Success
             }
             .start()
 }

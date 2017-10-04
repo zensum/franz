@@ -1,4 +1,4 @@
-package franz.internal
+package franz
 
 enum class JobStatus {
     Success,

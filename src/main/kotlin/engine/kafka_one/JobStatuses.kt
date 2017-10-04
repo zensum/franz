@@ -1,12 +1,13 @@
-package franz.internal
+package franz.engine.kafka_one
 
+import franz.JobStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 
 private fun <K, V> Map<K, V>.getOrFail(k: K) = get(k)!!
 
-private fun findCommitableOffsets(x: Map<JobId, JobStatus>) = x
+private fun findCommittableOffsets(x: Map<JobId, JobStatus>) = x
         .toList()
         .groupBy { it.first.first }
         .map { (_, values) ->
@@ -23,7 +24,7 @@ data class JobStatuses<T, U>(
         private val records: Map<JobId, ConsumerRecord<T, U>> = emptyMap()
 ) {
     fun update(updates: Map<JobId, JobStatus>) = copy(jobStatuses = jobStatuses + updates)
-    fun committableOffsets() = findCommitableOffsets(jobStatuses)
+    fun committableOffsets() = findCommittableOffsets(jobStatuses)
     fun removeCommitted(committed: Map<TopicPartition, OffsetAndMetadata>) = if (committed.isEmpty()) this else
         copy(
                 jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->

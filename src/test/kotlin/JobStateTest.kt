@@ -1,32 +1,43 @@
 package franz
 
-import franz.internal.JobDSL
-import franz.internal.JobStatus
 import kotlinx.coroutines.experimental.runBlocking
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import kotlin.test.*
 
-class JobStateTest {
-
-    private fun <T> consumerRecordOfValue(value: T): ConsumerRecord<String, T> {
-        return ConsumerRecord("topic", 0, 0L, "key", value)
+class TestMessage<T>(private val value: T) : Message<String, T> {
+    override fun value(): T = value
+    override fun headers(): Array<Pair<String, ByteArray>> {
+        throw NotImplementedError()
     }
 
-    private fun <U> jobFrom(value: U): JobDSL<String, U> = JobDSL(consumerRecordOfValue(value))
+    override fun key(): String {
+        throw NotImplementedError()
+    }
 
+    override fun headers(key: String): Array<ByteArray> {
+        throw NotImplementedError()
+    }
+
+    override fun topic(): String {
+        throw NotImplementedError()
+    }
+}
+
+class JobStateTest {
+    private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(TestMessage(value))
     val jobOne = jobFrom("1")
 
     @Test
     fun testCreateJobState() {
         val job = jobOne
-        assertEquals("1", job.asPipe().value)
+        assertEquals("1", job.value!!.value())
     }
 
     @Test
     fun testValidateTrue() {
         val job = jobOne
-        val status = job.asPipe()
+        val status = job
                 .require { true }
                 .require { true }
 
@@ -36,7 +47,7 @@ class JobStateTest {
     @Test
     fun testValidateFalse() {
         val job = jobOne
-        val status = job.asPipe()
+        val status = job
                 .require { true }
                 .require { false }
                 .require { true }
@@ -47,7 +58,7 @@ class JobStateTest {
     @Test
     fun testExecuteTrue() {
         val job = jobOne
-        val status = job.asPipe()
+        val status = job
                 .execute { true }
                 .execute { true }
 
@@ -57,7 +68,7 @@ class JobStateTest {
     @Test
     fun testExecuteFalse() {
         val job = jobOne
-        val status = job.asPipe()
+        val status = job
                 .execute { true }
                 .execute { false }
                 .execute { true }
@@ -68,7 +79,7 @@ class JobStateTest {
     @Test
     fun testConfirmTrue() {
         val job = jobOne
-        val status = job.asPipe()
+        val status = job
                 .advanceIf { true }
                 .advanceIf { true }
 
@@ -78,7 +89,7 @@ class JobStateTest {
     @Test
     fun testConfirmFalse() {
         val job = jobOne
-        val status = job.asPipe()
+        val status = job
                 .advanceIf { true }
                 .advanceIf { false }
                 .advanceIf { true }
@@ -89,10 +100,11 @@ class JobStateTest {
     @Test
     fun testMapSuccessful() {
         val job = jobOne
-        val status = job.asPipe()
-                .require { true }
-                .map(Integer::parseInt)
-                .require { it == 1 }
+        val status = job
+            .require { true }
+            .map { it.value() }
+            .map(Integer::parseInt)
+            .require { it == 1 }
 
         assertEquals(1, status.value)
     }
@@ -101,10 +113,11 @@ class JobStateTest {
     fun testMapToNull() {
         val job = jobOne
 
-        val state = job.asPipe()
-                .require { true }
-                .require { false }
-                .map(Integer::parseInt)
+        val state = job
+            .require { true }
+            .require { false }
+            .map { it.value() }
+            .map(Integer::parseInt)
 
         assertNull(state.value)
     }
@@ -113,7 +126,7 @@ class JobStateTest {
     fun testEndSuccessful() {
         val job = jobOne
 
-        val status = job.asPipe()
+        val status = job
                 .require { true }
                 .execute { true }
                 .advanceIf { true }
@@ -126,7 +139,7 @@ class JobStateTest {
     fun testEndFailure() {
         val job = jobOne
 
-        val status = job.asPipe()
+        val status = job
                 .require { true }
                 .execute { true }
                 .advanceIf { true }
@@ -138,13 +151,14 @@ class JobStateTest {
     @Test
     fun testConversionWithTwoMapsInSequence() {
         val job = jobOne
-        val result = job.asPipe()
-                .advanceIf { it.isNotEmpty() }
-                .map(Integer::parseInt)
-                .map { it * 2 }
-                .map { it + 4 }
-                .require { it > 1 }
-                .end { it > 0 }
+        val result = job
+            .advanceIf { it.value().isNotEmpty() }
+            .map { it.value() }
+            .map(Integer::parseInt)
+            .map { it * 2 }
+            .map { it + 4 }
+            .require { it > 1 }
+            .end { it > 0 }
 
         assertEquals(JobStatus.Success, result)
     }
@@ -152,33 +166,34 @@ class JobStateTest {
     @Test
     fun testConversionWithFailingValidationAndMap() {
         val job = jobOne
-        val result = job.asPipe()
-                .advanceIf { it.isNotEmpty() }
-                .map(Integer::parseInt)
-                .map { it * 2 }
-                .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
-                .map { it + 4 }
-                .end { it > 0 }
+        val result = job
+            .map { it.value() }
+            .advanceIf { it.isNotEmpty() }
+            .map(Integer::parseInt)
+            .map { it * 2 }
+            .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
+            .map { it + 4 }
+            .end { it > 0 }
 
         assertEquals(JobStatus.PermanentFailure, result)
     }
 
     @Test
     fun testNullaryEndIsSuccess() {
-        val res = jobOne.asPipe().end()
+        val res = jobOne.end()
         assertEquals(JobStatus.Success, res)
     }
 
     @Test
     fun testNullaryEndNonSuccess() {
-        val res = jobOne.asPipe().require { false }.end()
+        val res = jobOne.require { false }.end()
         assertNotEquals(JobStatus.Success, res)
     }
 
     @Test
     fun testSideeffectCalled() {
         var effectCalled = false
-        val res = jobOne.asPipe().sideEffect { effectCalled = true }.end()
+        val res = jobOne.sideEffect { effectCalled = true }.end()
         assertEquals(JobStatus.Success, res)
         assertTrue { effectCalled }
     }
@@ -186,7 +201,7 @@ class JobStateTest {
     @Test
     fun testSideeffectNotCalled() {
         var effectCalled = false
-        jobOne.asPipe().require { false }.sideEffect { effectCalled = true }.end()
+        jobOne.require { false }.sideEffect { effectCalled = true }.end()
         assertFalse { effectCalled }
     }
 
@@ -195,7 +210,7 @@ class JobStateTest {
     @Test
     fun testInlineMapWorks() {
         runBlocking {
-            jobOne.asPipe().map { lolz() }
+            jobOne.map { lolz() }
         }.let {
             assertEquals(10, it.value)
         }
@@ -203,7 +218,7 @@ class JobStateTest {
 
     @Test
     fun testRequireWithLogMessage() {
-        val state = jobOne.asPipe()
+        val state = jobOne
             .require("This predicate must be true") { false }
             .end()
 
@@ -212,7 +227,7 @@ class JobStateTest {
 
     @Test
     fun testExecuteWithLogMessage() {
-        val state = jobOne.asPipe()
+        val state = jobOne
             .execute("This predicate must be true") { false }
             .end()
 
@@ -221,7 +236,7 @@ class JobStateTest {
 
     @Test
     fun testAdvanceIfWithLogMessage() {
-        val state = jobOne.asPipe()
+        val state = jobOne
             .advanceIf("This predicate must be true") { false }
             .end()
 
@@ -230,8 +245,8 @@ class JobStateTest {
 
     @Test
     fun testWithNullAsLogMessage() {
-        val state = jobOne.asPipe()
-            .process(JobStatus.TransientFailure, {false}, null)
+        val state = jobOne
+            .process(JobStatus.TransientFailure, { false }, null)
             .end()
 
         assertEquals(JobStatus.TransientFailure, state)

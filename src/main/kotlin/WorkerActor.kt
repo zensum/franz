@@ -1,35 +1,21 @@
-package franz.internal
+package franz
 
+import franz.engine.ConsumerActor
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.launch
-import mu.KLogging
-import org.apache.kafka.clients.consumer.ConsumerRecord
 
-class JobDSL<T, U>(rec: ConsumerRecord<T, U>) {
-    val success = JobStatus.Success
-    fun permanentFailure(ex: Throwable) = JobStatus.PermanentFailure.also {
-        logger.error("PermanentFailure: ", ex)
-    }
-    fun transientFailure(ex: Throwable) = JobStatus.TransientFailure.also {
-        logger.error("TransientFailure: ", ex)
-    }
-    private val keyInner = rec.key()
-    val key = lazy { keyInner!! }
-    fun keySet() = keyInner != null
-
-    val value = rec.value()!!
-    companion object : KLogging()
+private inline fun tryJobStatus(fn: () -> JobStatus) = try {
+    fn()
+} catch (ex: Exception) {
+    // logger.error(ex, "Unhandled error in job")
+    JobStatus.TransientFailure
 }
 
-typealias WorkerFunction<T, U> = suspend JobDSL<T, U>.() -> JobStatus
-
+typealias WorkerFunction<T, U> = suspend (Message<T, U>) -> JobStatus
 private fun <T, U> worker(cons: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = cons.subscribe {
     launch(CommonPool) {
-        val dsl = JobDSL(it)
-        cons.setJobStatus(it.jobId(), try {
-            fn(dsl)
-        } catch (exc: Exception) {
-            dsl.transientFailure(exc)
+        cons.setJobStatus(it, tryJobStatus {
+            fn(it)
         })
     }
 }

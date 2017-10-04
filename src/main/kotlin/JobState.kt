@@ -1,10 +1,9 @@
 package franz
 
-import franz.internal.JobDSL
-import franz.internal.JobStatus
 import mu.KotlinLogging
 
 val log = KotlinLogging.logger("job")
+@Deprecated("Use WorkerBuilder.pipedHandler instead")
 fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
 class JobState<U: Any> @PublishedApi internal constructor(val value: U?) {
@@ -50,13 +49,17 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?) {
     inline fun sideEffect(fn: (U) -> Unit): JobState<U> = execute { fn(it!!); true }
 
     /**
+     * If the [JobState] is non-terminal mark it as a success
+     */
+    fun success(): JobState<U> = also { it.status = JobStatus.Success }
+
+    /**
      * Use when conducting the final operation on the job. If it successfully done (the predicate returns true)
      * the [JobState] will automatically be set as [JobStatus.Success] and return the [JobStatus] rather than
      * the [JobState] itself, prohibiting that any more work is done on this job through this pipe. The returned
      * [JobStatus] can never be [JobStatus.Incomplete] when returning from this function (unless that was the status
      * prior to this function call).
      * */
-
     inline fun end(predicate: (U) -> Boolean): JobStatus {
         if (inProgress()) {
             this.status = when (predicate(value!!)) {

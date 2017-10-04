@@ -1,4 +1,4 @@
-package franz.internal
+package franz.engine.kafka_one
 
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
