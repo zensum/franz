@@ -97,5 +97,5 @@ sourceSets {
 
 task wrapper(type: Wrapper) {
     description = 'Generates gradlew[.bat] scripts for faster execution'
-    gradleVersion = '4.0'
+    gradleVersion = '4.2'
 }

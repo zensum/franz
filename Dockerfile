@@ -1,4 +1,4 @@
-FROM gradle:3.5-jdk8-alpine
+FROM gradle:4.2-jdk8-alpine
 
 USER root
 RUN mkdir -p /usr/src/app && chown gradle:gradle /usr/src/app
