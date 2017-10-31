@@ -1,7 +1,6 @@
 package franz
 
 import kotlinx.coroutines.experimental.runBlocking
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import kotlin.test.*
 
@@ -20,6 +19,10 @@ class TestMessage<T>(private val value: T) : Message<String, T> {
     }
 
     override fun topic(): String {
+        throw NotImplementedError()
+    }
+
+    override fun timestamp(): Long {
         throw NotImplementedError()
     }
 }

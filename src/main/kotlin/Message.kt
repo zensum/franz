@@ -6,4 +6,5 @@ interface Message<out K, out V> {
     fun headers(key: String): Array<ByteArray>
     fun key(): K
     fun topic(): String
+    fun timestamp(): Long
 }
