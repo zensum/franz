@@ -28,6 +28,10 @@ data class WorkerBuilder<T> private constructor(
     @Deprecated("Use piped or handler instead")
     fun running(fn: RunningFunction<String, T>) = handler(runningWorker(fn))
     fun handlePiped(fn: PipedWorkerFunction<String, T>) = handler(pipedWorker(fn))
+    fun handlePiped(fn: Worker) = handler(pipedWorker {
+        // This horrible construction allows Worker lambdas to be passed in
+        fn.process(it as JobState<Message<String, ByteArray>>)
+    })
     fun subscribedTo(vararg newTopics: String) = copy(topics = topics + newTopics)
     fun subscribedTo(topics: Collection<String>): WorkerBuilder<T> = merge(this, topics.toTypedArray())
     fun groupId(id: String) = option("group.id", id)
