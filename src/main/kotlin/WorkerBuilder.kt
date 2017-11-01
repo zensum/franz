@@ -54,6 +54,7 @@ data class WorkerBuilder<T> private constructor(
 
     companion object {
         val ofByteArray = WorkerBuilder<ByteArray>().option(valueDeserKey, byteArrayDeser)
+        @Deprecated("WorkerBuilders of strings will not be supported going forward")
         val ofString = WorkerBuilder<String>().option(valueDeserKey, stringDeser)
     }
 }
