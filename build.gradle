@@ -38,6 +38,7 @@ dependencies {
     compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: '0.19.1'
     compile 'io.github.microutils:kotlin-logging:1.4.6'
     compile 'org.apache.kafka:kafka-clients:0.11.0.0'
+    compile group: 'org.xeustechnologies', name: 'jcl-core', version: '2.8'
     runtime 'ch.qos.logback:logback-classic:1.2.3'
     testCompile 'org.junit.jupiter:junit-jupiter-api:5.0.0-M4'
     testCompile "org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version"
