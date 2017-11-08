@@ -20,7 +20,7 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
         .also { bq.drainTo(it) }
         .toList()
 
-const val POLLING_INTERVAL = 10000L
+const val POLLING_INTERVAL = 30000L
 
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
                                       statuses: JobStatuses<T, U>)
