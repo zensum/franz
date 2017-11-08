@@ -40,7 +40,9 @@ private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                           jobStatuses: JobStatuses<T, U>) =
     c.poll(POLLING_INTERVAL).let {
-        logger.info { "Adding ${it.count()} new tasks from Kafka" }
+        if (it.count() > 0) {
+            logger.info { "Adding ${it.count()} new tasks from Kafka" }
+        }
         outQueue.offerAll(it) to jobStatuses.addJobs(it)
     }
 
