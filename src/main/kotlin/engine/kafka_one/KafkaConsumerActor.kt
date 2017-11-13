@@ -20,7 +20,7 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
         .also { bq.drainTo(it) }
         .toList()
 
-const val POLLING_INTERVAL = 10000L
+const val POLLING_INTERVAL = 30000L
 
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
                                       statuses: JobStatuses<T, U>)
@@ -40,7 +40,9 @@ private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,
                                           jobStatuses: JobStatuses<T, U>) =
     c.poll(POLLING_INTERVAL).let {
-        logger.info { "Adding ${it.count()} new tasks from Kafka" }
+        if (it.count() > 0) {
+            logger.info { "Adding ${it.count()} new tasks from Kafka" }
+        }
         outQueue.offerAll(it) to jobStatuses.addJobs(it)
     }
 
