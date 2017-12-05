@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test
 import kotlin.test.*
 
 class TestMessage<T>(private val value: T) : Message<String, T> {
+    override fun offset(): Long {
+        TODO("not implemented")
+    }
     override fun value(): T = value
     override fun headers(): Array<Pair<String, ByteArray>> {
         throw NotImplementedError()
