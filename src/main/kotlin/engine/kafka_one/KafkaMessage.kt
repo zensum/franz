@@ -4,6 +4,7 @@ import franz.Message
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
 class KafkaMessage<T, U>(private val rec: ConsumerRecord<T, U>) : Message<T, U> {
+    override fun offset(): Long = rec.offset()
     override fun value(): U = rec.value()
     override fun key(): T = rec.key()
     override fun headers(): Array<Pair<String, ByteArray>> = rec.headers()
