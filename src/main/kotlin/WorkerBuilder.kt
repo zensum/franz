@@ -33,6 +33,7 @@ data class WorkerBuilder<T> private constructor(
     fun groupId(id: String) = option("group.id", id)
     fun option(k: String, v: Any) = options(mapOf(k to v))
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
+    fun setEngine(e: ConsumerActorFactory): WorkerBuilder<T> = copy(engine = e)
 
     fun start() {
         val c = engine.create<String, T>(opts, topics)
