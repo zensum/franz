@@ -24,4 +24,6 @@ class MockProducer<K, V>(
         CompletableFuture.supplyAsync { sendRawResult }.also { onSendRaw.invoke(rec.value()) }
     override fun close() = Unit
 
+    fun createFactory() =
+        MockProducerFactory(this)
 }
