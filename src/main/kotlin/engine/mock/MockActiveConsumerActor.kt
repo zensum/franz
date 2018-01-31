@@ -3,21 +3,29 @@ package franz.engine.mock
 import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
+import java.util.*
 
-class MockActiveConsumerActor<T, U>(var messageQueue : MutableList<Message<T, U>>) : ConsumerActor<T, U> {
-    private var handlers = mutableListOf<(Message<T, U>) -> Unit>()
+class MockActiveConsumerActor<T, U>(val messageQueue : Queue<Message<T, U>>) : ConsumerActor<T, U> {
     var results = mutableMapOf<Message<T, U>, JobStatus>()
-    override fun start() {
-        Thread {
-            messageQueue.forEach { m ->
+    private var handlers = mutableListOf<(Message<T, U>) -> Unit>()
+    private val workerThread = Thread {
+        try {
+            while (true) {
+                val m = messageQueue.poll()
                 handlers.forEach { h ->
                     h(m)
                 }
             }
-        }.start()
+        }catch (e: InterruptedException){
+            // When iterupted, quit this thread
+        }
+    }
+    override fun start() {
+        workerThread.start()
     }
 
     override fun stop() {
+        workerThread.interrupt()
     }
 
     override fun setJobStatus(msg: Message<T, U>, status: JobStatus) {
