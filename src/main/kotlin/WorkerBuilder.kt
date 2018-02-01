@@ -3,6 +3,7 @@ package franz
 import franz.engine.ConsumerActor
 import franz.engine.ConsumerActorFactory
 import franz.engine.kafka_one.KafkaConsumerActorFactory
+import java.io.Closeable
 
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"
 private val byteArrayDeser = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -22,10 +23,9 @@ private fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>): WorkerFunction<T,
 data class Worker<K, V>(
     private val consumer: ConsumerActor<K, V>,
     private val thread: Thread
-){
-    fun stop(){
+): Closeable{
+    override fun close() {
         consumer.stop()
-        thread.interrupt()
     }
 }
 
