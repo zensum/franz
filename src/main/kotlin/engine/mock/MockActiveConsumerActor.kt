@@ -35,4 +35,12 @@ class MockActiveConsumerActor<T, U>(val messageQueue : Queue<Message<T, U>>) : C
     override fun subscribe(fn: (Message<T, U>) -> Unit) {
         handlers.add(fn)
     }
+
+    companion object {
+        fun ofByteArray(messageQueue : Queue<Message<String, ByteArray>>) =
+            MockActiveConsumerActor(messageQueue)
+
+        fun ofString(messageQueue : Queue<Message<String, ByteArray>>) =
+            MockActiveConsumerActor(messageQueue)
+    }
 }
