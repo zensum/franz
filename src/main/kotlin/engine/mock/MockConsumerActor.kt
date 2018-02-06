@@ -29,6 +29,9 @@ class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : Cons
         handlers.add(fn)
     }
 
+    fun createFactory() =
+        MockConsumerActorFactory(this)
+
     companion object {
         fun ofByteArray(messages: List<Message<String, ByteArray>>) =
             MockConsumerActor(messages)
