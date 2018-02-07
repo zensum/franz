@@ -9,7 +9,7 @@ class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : Cons
     var results = mutableMapOf<Message<T, U>, JobStatus>()
 
     override fun start() {
-        Thread {
+        //Thread {
             messages.forEach { m ->
                 println("Found message")
                 handlers.forEach { h ->
@@ -17,7 +17,7 @@ class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : Cons
                     h(m)
                 }
             }
-        }.start()
+        //}.start()
     }
 
     override fun stop() {
