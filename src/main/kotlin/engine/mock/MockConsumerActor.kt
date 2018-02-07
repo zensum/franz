@@ -11,7 +11,9 @@ class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : Cons
     override fun start() {
         Thread {
             messages.forEach { m ->
+                println("Found message")
                 handlers.forEach { h ->
+                    println("Handled message")
                     h(m)
                 }
             }
