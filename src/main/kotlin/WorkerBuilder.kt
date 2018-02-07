@@ -22,7 +22,7 @@ private fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>): WorkerFunction<T,
 
 data class Worker<K, V>(
     private val consumer: ConsumerActor<K, V>,
-    private val thread: Thread
+    val thread: Thread
 ): Closeable{
     override fun close() {
         consumer.stop()
