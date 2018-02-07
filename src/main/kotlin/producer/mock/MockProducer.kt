@@ -6,6 +6,7 @@ import franz.producer.Producer
 
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletableFuture.supplyAsync
 
 class MockProducer<K, V>(
     val doSendResult: ProduceResult = MockProduceResult(),
@@ -16,12 +17,20 @@ class MockProducer<K, V>(
     val onSendRaw: (V) -> Unit = {}
 
 ): Producer<K, V> {
-    private fun doSend(rec: ProducerRecord<K, V>) =
-        CompletableFuture.supplyAsync { doSendResult }.also { onSend.invoke(rec.value()) }
-    override fun sendAsync(topic: String, key: K?, value: V): ProduceResultF =
-        CompletableFuture.supplyAsync { sendAsyncResult }.also { onSendAsync.invoke(value) }
-    override fun sendRaw(rec: ProducerRecord<K, V>) =
-        CompletableFuture.supplyAsync { sendRawResult }.also { onSendRaw.invoke(rec.value()) }
+    private fun doSend(rec: ProducerRecord<K, V>): CompletableFuture<ProduceResult> {
+        onSend.invoke(rec.value())
+        return supplyAsync { doSendResult }
+    }
+
+    override fun sendAsync(topic: String, key: K?, value: V): ProduceResultF {
+        onSendAsync.invoke(value)
+        return supplyAsync { sendAsyncResult }
+    }
+
+    override fun sendRaw(rec: ProducerRecord<K, V>): CompletableFuture<ProduceResult> {
+        onSendRaw.invoke(rec.value())
+        return supplyAsync { sendRawResult }
+    }
     override fun close() = Unit
 
     fun createFactory() =
