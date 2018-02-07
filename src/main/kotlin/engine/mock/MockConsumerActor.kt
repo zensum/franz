@@ -16,13 +16,10 @@ class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : Cons
     }
 
     override fun subscribe(fn: (Message<T, U>) -> Unit) {
-        println("Subscribe")
         handlers.add(fn)
 
         messages.forEach { m ->
-            println("Found message")
             handlers.forEach { h ->
-                println("Handled message")
                 h(m)
             }
         }
