@@ -17,7 +17,7 @@ class MockActiveConsumerActor<T, U>(val messageQueue : Queue<Message<T, U>>) : C
                 }
             }
         }catch (e: InterruptedException){
-            // When iterupted, quit this thread
+            // When interrupted, quit this thread
         }
     }
     override fun start() {
