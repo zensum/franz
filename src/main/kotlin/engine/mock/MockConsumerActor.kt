@@ -29,10 +29,10 @@ class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : Cons
         MockConsumerActorFactory(this)
 
     companion object {
-        fun ofByteArray(messages: List<Message<String, ByteArray>>) =
+        fun ofByteArray(messages: List<Message<String, ByteArray>> = emptyList()) =
             MockConsumerActor(messages)
 
-        fun ofString(messages: List<Message<String, String>>) =
+        fun ofString(messages: List<Message<String, String>> = emptyList()) =
             MockConsumerActor(messages)
     }
 }
