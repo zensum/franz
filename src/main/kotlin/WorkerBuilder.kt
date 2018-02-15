@@ -1,7 +1,9 @@
 package franz
 
+import franz.engine.ConsumerActor
 import franz.engine.ConsumerActorFactory
 import franz.engine.kafka_one.KafkaConsumerActorFactory
+import java.io.Closeable
 
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"
 private val byteArrayDeser = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -16,6 +18,15 @@ private fun <T, U> runningWorker(fn: RunningFunction<T, U>): WorkerFunction<T, U
 
 private fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>): WorkerFunction<T, U> = {
     fn(JobState(it))
+}
+
+data class Worker<K, V>(
+    private val consumer: ConsumerActor<K, V>,
+    val thread: Thread
+): Closeable{
+    override fun close() {
+        consumer.stop()
+    }
 }
 
 data class WorkerBuilder<T> private constructor(
@@ -35,11 +46,13 @@ data class WorkerBuilder<T> private constructor(
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
     fun setEngine(e: ConsumerActorFactory): WorkerBuilder<T> = copy(engine = e)
 
-    fun start() {
+    fun start(): Worker<String, T> {
         val c = engine.create<String, T>(opts, topics)
         val th = createWorker(c, fn!!)
         th.start()
         c.start()
+
+        return Worker(c, th)
     }
 
     private tailrec fun merge(builder: WorkerBuilder<T>, topics: Array<String>, i: Int = 0): WorkerBuilder<T> {

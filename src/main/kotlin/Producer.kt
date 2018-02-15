@@ -10,11 +10,11 @@ private val valueSerKey = "value.serializer"
 
 data class ProducerBuilder<T> private constructor(
     private val opts: Map<String, Any> = emptyMap(),
-    private val producer: ProducerFactory = KProducerFactory
+    private val producer: ProducerFactory<String, T> = KProducerFactory()
 ) {
     fun option(k: String, v: Any) = options(mapOf(k to v))
     fun options(newOpts: Map<String, Any>) = ProducerBuilder<T>(opts + newOpts)
-    fun setProducer(p: ProducerFactory) = copy(producer = p)
+    fun setProducer(p: ProducerFactory<String, T>) = copy(producer = p)
     fun create(): Producer<String, T> = producer.create(opts)
     companion object {
         val ofByteArray = ProducerBuilder<ByteArray>().option(valueSerKey, byteArraySer)
