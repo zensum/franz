@@ -3,6 +3,11 @@ package franz.engine.mock
 import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
+import franz.engine.WorkerFunction
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.experimental.runBlocking
+import sun.management.snmp.jvminstr.JvmThreadInstanceEntryImpl.ThreadStateMap.Byte0.runnable
 
 class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : ConsumerActor<T, U> {
     private var handlers = mutableListOf<(Message<T, U>) -> Unit>()
@@ -23,6 +28,27 @@ class MockConsumerActor<T, U>(private val messages : List<Message<T, U>>) : Cons
                 h(m)
             }
         }
+    }
+
+    override fun createWorker(fn: WorkerFunction<T, U>): Runnable {
+        val consumer = this
+        return object : Runnable {
+            override fun run() {
+                worker(consumer, fn)
+            }
+        }
+    }
+
+    private inline fun tryJobStatus(fn: () -> JobStatus) = try {
+        fn()
+    } catch (ex: Exception) {
+        JobStatus.TransientFailure
+    }
+
+    private fun <T, U> worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = consumer.subscribe {
+        consumer.setJobStatus(it, tryJobStatus {
+            runBlocking { fn(it) }
+        })
     }
 
     fun createFactory() =
