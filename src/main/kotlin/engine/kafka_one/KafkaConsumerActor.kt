@@ -2,6 +2,9 @@ package franz.engine.kafka_one
 import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
+import franz.engine.WorkerFunction
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.launch
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -142,4 +145,22 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     override fun stop() = runFlag.lazySet(false)
     override fun setJobStatus(message: Message<T, U>, status: JobStatus) =
         commandQueue.put(SetJobStatus((message as KafkaMessage).jobId(), status))
+
+    override fun createWorker(fn: WorkerFunction<T, U>): Runnable =
+        Thread { Thread { worker(this, fn) } }
+
+    private inline fun tryJobStatus(fn: () -> JobStatus) = try {
+        fn()
+    } catch (ex: Exception) {
+        logger.error("Job threw an exception", ex)
+        JobStatus.TransientFailure
+    }
+
+    private fun <T, U> worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = consumer.subscribe {
+        launch(CommonPool) {
+            consumer.setJobStatus(it, tryJobStatus {
+                fn(it)
+            })
+        }
+    }
 }

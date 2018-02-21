@@ -1,6 +1,5 @@
 package franz.engine.mock
 
-import franz.Message
 import franz.engine.ConsumerActor
 import franz.engine.ConsumerActorFactory
 
