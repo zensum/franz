@@ -147,7 +147,7 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
         commandQueue.put(SetJobStatus((message as KafkaMessage).jobId(), status))
 
     override fun createWorker(fn: WorkerFunction<T, U>): Runnable =
-        Thread { worker(this, fn) }
+        Thread ({ worker(this, fn) })
 
     private inline fun tryJobStatus(fn: () -> JobStatus) = try {
         fn()
