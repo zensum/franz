@@ -151,10 +151,6 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
         Thread { worker(this, fn)}.start()
     }
 
-    /*
-    override fun createWorker(fn: WorkerFunction<T, U>): Runnable =
-        Thread({ logger.info { "Test" }})
-    */
     private inline fun tryJobStatus(fn: () -> JobStatus) = try {
         fn()
     } catch (ex: Exception) {
@@ -165,7 +161,6 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     private fun <T, U> worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>){
         try {
             consumer.subscribe {
-                logger.info { "start worker..." }
                 launch(CommonPool) {
                     consumer.setJobStatus(it, tryJobStatus {
                         fn(it)
