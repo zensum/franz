@@ -4,6 +4,8 @@ import kotlinx.coroutines.experimental.runBlocking
 import mu.KotlinLogging
 import java.util.*
 
+val logger = KotlinLogging.logger("test-logger")
+
 fun main(args: Array<String>) {
     val rnd = Random()
     WorkerBuilder.ofString

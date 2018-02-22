@@ -3,6 +3,7 @@ import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
 import franz.engine.WorkerFunction
+import franz.log
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.launch
 import mu.KotlinLogging
@@ -132,7 +133,7 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     private val commandQueue = ArrayBlockingQueue<SetJobStatus>(COMMAND_QUEUE_DEPTH)
     private val runFlag = AtomicBoolean(true)
     private fun createThread() =
-        Thread({ consumerLoop(kafkaConsumer, outQueue, commandQueue, runFlag::get) })
+        Thread({ consumerLoop(kafkaConsumer, outQueue, commandQueue, runFlag::get) }).also { logger.info { "Creating thread..." } }
     override fun start() {
         createThread().start()
     }
@@ -146,9 +147,14 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     override fun setJobStatus(message: Message<T, U>, status: JobStatus) =
         commandQueue.put(SetJobStatus((message as KafkaMessage).jobId(), status))
 
-    override fun createWorker(fn: WorkerFunction<T, U>): Runnable =
-        Thread ({ worker(this, fn) })
+    override fun createWorker(fn: WorkerFunction<T, U>){
+        Thread { worker(this, fn)}.start()
+    }
 
+    /*
+    override fun createWorker(fn: WorkerFunction<T, U>): Runnable =
+        Thread({ logger.info { "Test" }})
+    */
     private inline fun tryJobStatus(fn: () -> JobStatus) = try {
         fn()
     } catch (ex: Exception) {
@@ -156,11 +162,18 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
         JobStatus.TransientFailure
     }
 
-    private fun <T, U> worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) = consumer.subscribe {
-        launch(CommonPool) {
-            consumer.setJobStatus(it, tryJobStatus {
-                fn(it)
-            })
+    private fun <T, U> worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>){
+        try {
+            consumer.subscribe {
+                logger.info { "start worker..." }
+                launch(CommonPool) {
+                    consumer.setJobStatus(it, tryJobStatus {
+                        fn(it)
+                    })
+                }
+            }
+        }catch (ex: Exception){
+            logger.error ("Starting worker threw an exception", ex)
         }
     }
 }

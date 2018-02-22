@@ -29,13 +29,8 @@ abstract class MockConsumerActorBase<T, U> : ConsumerActor<T, U> {
         internalResults.add(Result(e, JobStatus.TransientFailure))
     }
 
-    override fun createWorker(fn: WorkerFunction<T, U>): Runnable {
-        val consumer = this
-        return object : Runnable {
-            override fun run() {
-                worker(consumer, fn)
-            }
-        }
+    override fun createWorker(fn: WorkerFunction<T, U>) {
+                worker(this, fn)
     }
 
     private fun worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) {

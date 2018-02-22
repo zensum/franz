@@ -10,5 +10,5 @@ interface ConsumerActor<T, U> {
     fun stop()
     fun subscribe(fn: (Message<T, U>) -> Unit)
     fun setJobStatus(msg: Message<T, U>, status: JobStatus)
-    fun createWorker(fn: WorkerFunction<T, U>): Runnable
+    fun createWorker(fn: WorkerFunction<T, U>)
 }

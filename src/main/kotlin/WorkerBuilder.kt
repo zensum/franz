@@ -40,8 +40,7 @@ data class WorkerBuilder<T> private constructor(
 
     fun start(){
         val c = engine.create<String, T>(opts, topics)
-        val worker = c.createWorker(fn!!)
-        worker.run()
+        c.createWorker(fn!!)
         c.start()
     }
 
