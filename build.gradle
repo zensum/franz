@@ -10,7 +10,7 @@ description = 'description of project'
 defaultTasks 'run'
 
 buildscript {
-    ext.kotlin_version = '1.1.51'
+    ext.kotlin_version = '1.2.21'
     ext.jvm_version = '1.8'
     ext.junit_platform_version = '1.0.0-M4'
     repositories {
@@ -34,8 +34,8 @@ apply plugin: 'com.github.johnrengelman.shadow'
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
-    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-jdk8', version: '0.19.1'
-    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: '0.19.1'
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:0.22.2'
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.2'
     compile 'io.github.microutils:kotlin-logging:1.4.6'
     compile 'org.apache.kafka:kafka-clients:0.11.0.0'
     runtime 'ch.qos.logback:logback-classic:1.2.3'
