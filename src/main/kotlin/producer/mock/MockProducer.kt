@@ -31,6 +31,11 @@ class MockProducer<K, V>(
         onSendRaw.invoke(rec.value())
         return supplyAsync { sendRawResult }
     }
+
+    override fun sendAsync(topic: String, key: K?, value: V, headers: Iterable<Pair<String, ByteArray>>): ProduceResultF {
+        onSendAsync.invoke(value)
+        return supplyAsync { sendAsyncResult }
+    }
     override fun close() = Unit
 
     fun createFactory() =
