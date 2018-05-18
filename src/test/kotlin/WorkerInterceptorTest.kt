@@ -78,7 +78,7 @@ class WorkerInterceptorTest {
                 .install(WorkerInterceptor{it.executeNext()})
                 .handlePiped {
                     it
-                        .sideEffect { println("side effect") }
+                        .sideEffect {  }
                         .end()
 
                 }
@@ -99,7 +99,7 @@ class WorkerInterceptorTest {
                 .install(WorkerInterceptor{it.executeNext()})
                 .handlePiped {
                     it
-                        .sideEffect { println("side effect") }
+                        .sideEffect {  }
                         .end()
 
                 }
@@ -158,7 +158,7 @@ class WorkerInterceptorTest {
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
                 .handlePiped {
                     it
-                        .sideEffect { println("Side effect") }
+                        .sideEffect {  }
                         .end()
 
                 }
@@ -191,5 +191,62 @@ class WorkerInterceptorTest {
 
         worker.start()
         assertTrue(exceptionEncountered)
+    }
+
+    @Test
+    fun runSingleInterceptorSeveralStages(){
+        var count = 0
+
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
+                .install(WorkerInterceptor {
+                    count ++
+                })
+                .handlePiped {
+                    it
+                        .execute { true }
+                        .execute { true }
+                        .sideEffect { }
+                        .end()
+
+                }
+
+        worker.start()
+
+        // One interceptor, three job stages, one message
+        assertEquals(3, count)
+    }
+
+    @Test
+    fun runSingleInterceptorSeveralMessages(){
+        var count = 0
+
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(MockConsumerActor.ofString(listOf(
+                    createTestMessage(),
+                    createTestMessage(),
+                    createTestMessage(),
+                    createTestMessage()
+                )).createFactory())
+                .install(WorkerInterceptor {
+                    count ++
+                })
+                .handlePiped {
+                    it
+                        .sideEffect { }
+                        .end()
+
+                }
+
+        worker.start()
+
+        // One interceptor, one job stages, four messages
+        assertEquals(4, count)
     }
 }
