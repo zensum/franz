@@ -1,16 +1,15 @@
 package franz
 
 class WorkerInterceptor(
-    private val previous: WorkerInterceptor? = null,
-    val onIntercept: ((WorkerInterceptor) -> Unit) = {}
+    var next: WorkerInterceptor? = null,
+    val onIntercept: ((WorkerInterceptor) -> Unit) = {
+        it.executeNext()
+    }
 ){
-    fun <U> execute(fn: (U) -> Boolean, value: U){
-        println("Execute")
-
-        this.onIntercept(this)
-
-        if(previous != null){
-            previous.execute(fn, value)
+    fun executeNext(){
+        val nextInterceptor = next
+        if(nextInterceptor != null){
+            nextInterceptor.onIntercept(nextInterceptor)
         }
     }
 }

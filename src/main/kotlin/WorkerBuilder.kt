@@ -1,5 +1,6 @@
 package franz
 
+import com.sun.xml.internal.ws.api.pipe.FiberContextSwitchInterceptor
 import franz.engine.ConsumerActorFactory
 import franz.engine.WorkerFunction
 import franz.engine.kafka_one.KafkaConsumerActorFactory
@@ -15,8 +16,8 @@ private fun <T, U> runningWorker(fn: RunningFunction<T, U>): WorkerFunction<T, U
     fn(JobDSL(it))
 }
 
-private fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, features: List<WorkerInterceptor>): WorkerFunction<T, U> = {
-    fn(JobState(it, features))
+private fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, interceptors: List<WorkerInterceptor>): WorkerFunction<T, U> = {
+    fn(JobState(it, interceptors))
 }
 
 data class WorkerBuilder<T> private constructor(
@@ -37,17 +38,25 @@ data class WorkerBuilder<T> private constructor(
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
     fun setEngine(e: ConsumerActorFactory): WorkerBuilder<T> = copy(engine = e)
 
-    fun install(i: WorkerInterceptor): WorkerBuilder<T> =
-        copy(interceptors = interceptors.toMutableList().also { it.add(createInterceptor(i)) })
+    fun install(i: WorkerInterceptor): WorkerBuilder<T> = copy(interceptors = interceptors.toMutableList().also{ it.add(i)})
+
     fun getInterceptors() = interceptors
 
     fun start(){
         val c = engine.create<String, T>(opts, topics)
+        setupInterceptors()
         c.createWorker(fn!!)
         c.start()
     }
 
-    private fun createInterceptor(i: WorkerInterceptor) = WorkerInterceptor(interceptors.lastOrNull(), i.onIntercept)
+    private fun setupInterceptors(){
+        if(interceptors.size > 2){
+            for(i in 1 .. interceptors.size){
+                interceptors[i -1].next = interceptors[i]
+            }
+        }
+    }
+
     private tailrec fun merge(builder: WorkerBuilder<T>, topics: Array<String>, i: Int = 0): WorkerBuilder<T> {
         return when(i > topics.lastIndex) {
             true -> builder

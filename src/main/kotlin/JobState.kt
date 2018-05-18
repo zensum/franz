@@ -4,9 +4,9 @@ import mu.KotlinLogging
 
 val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
-fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value, emptyList())
+fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
-class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val features: List<WorkerInterceptor> = emptyList()) {
+class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val interceptors: List<WorkerInterceptor> = emptyList()) {
     var status: JobStatus = JobStatus.Incomplete
 
         get() = field
@@ -79,15 +79,22 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val fea
     }
 
     fun process(newStatus: JobStatus, predicate: (U) -> Boolean, msg: String? = null): JobState<U> {
-        val firstFeature = features.firstOrNull()
-        if(firstFeature !=  null){
-            firstFeature.execute(predicate, value!!)
+        val lastInterceptor = WorkerInterceptor {
+            if (inProgress() && !predicate(value!!)) {
+                this.status = newStatus
+                msg?.let { log.debug("Failed on: $it") }
+            }
         }
 
-        if (inProgress() && !predicate(value!!)) {
-            this.status = newStatus
-            msg?.let { log.debug("Failed on: $it") }
+        val firstInterceptor = when(interceptors.size){
+            0 -> lastInterceptor
+            else -> {
+                interceptors.last().next = lastInterceptor
+                interceptors.first()
+            }
         }
+
+        firstInterceptor.onIntercept(firstInterceptor)
 
         return this
     }
@@ -98,7 +105,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val fea
             false -> null
         }
 
-        val state: JobState<R> = JobState(transFormedVal, features)
+        val state: JobState<R> = JobState(transFormedVal, interceptors)
         state.status = this.status
         return state
     }

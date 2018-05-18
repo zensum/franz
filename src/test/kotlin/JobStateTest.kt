@@ -211,7 +211,7 @@ class JobStateTest {
         assertFalse { effectCalled }
     }
 
-    private suspend fun lolz() = 10
+    private fun lolz() = 10
 
     @Test
     fun testInlineMapWorks() {

@@ -2,8 +2,10 @@ package franz
 
 import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import kotlin.test.*
+
+class DummyException(): Exception()
 
 class WorkerInterceptorTest {
 
@@ -44,6 +46,7 @@ class WorkerInterceptorTest {
                 }
 
         assertEquals(1, worker.getInterceptors().size)
+
     }
 
     @Test
@@ -72,15 +75,16 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor{println("Test")})
+                .install(WorkerInterceptor{it.executeNext()})
                 .handlePiped {
                     it
-                        .sideEffect { println("sideeffect") }
+                        .sideEffect { println("side effect") }
                         .end()
 
                 }
 
         assertEquals(1, worker.getInterceptors().size)
+
         worker.start()
     }
 
@@ -91,16 +95,101 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor{println("Test 01")})
-                .install(WorkerInterceptor{println("Test 02")})
+                .install(WorkerInterceptor{it.executeNext()})
+                .install(WorkerInterceptor{it.executeNext()})
                 .handlePiped {
                     it
-                        .sideEffect { println("sideeffect") }
+                        .sideEffect { println("side effect") }
                         .end()
 
                 }
 
         assertEquals(2, worker.getInterceptors().size)
         worker.start()
+    }
+
+    @Test
+    fun interceptorContinueExecution(){
+        var setFlagged = false
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
+                .install(WorkerInterceptor{it.executeNext()})
+                .handlePiped {
+                    it
+                        .sideEffect { setFlagged = true }
+                        .end()
+
+                }
+        worker.start()
+        assertTrue(setFlagged)
+    }
+
+    @Test
+    fun interceptorStopExecution(){
+        var setFlagged = false
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
+                .install(WorkerInterceptor{ /* Explicitly don't runt it.executeNext() */})
+                .install(WorkerInterceptor{it.executeNext()})
+                .handlePiped {
+                    it
+                        .sideEffect { setFlagged = true }
+                        .end()
+
+                }
+        worker.start()
+        assertFalse(setFlagged)
+    }
+
+    @Test
+    fun throwsUnhandled(){
+
+        // The Franz worker should swallow this exception and return a transient failure
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
+                .handlePiped {
+                    it
+                        .sideEffect { println("Side effect") }
+                        .end()
+
+                }
+
+        worker.start()
+    }
+
+    @Test
+    fun tryCatchInInterceptor(){
+        var exceptionEncountered = false
+
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
+                .install(WorkerInterceptor {
+                    try{
+                        it.executeNext()
+                    }catch (e: DummyException){
+                        exceptionEncountered = true
+                    }
+                })
+                .handlePiped {
+                    it
+                        .sideEffect { throw DummyException() }
+                        .end()
+
+                }
+
+        worker.start()
+        assertTrue(exceptionEncountered)
     }
 }
