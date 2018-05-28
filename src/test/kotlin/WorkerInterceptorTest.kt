@@ -41,7 +41,7 @@ class WorkerInterceptorTest {
                 .handlePiped {
                     it
                         .execute { true }
-                        .sideEffect { println("Exeute!") }
+                        .sideEffect {  }
                         .end()
 
                 }
@@ -264,12 +264,11 @@ class WorkerInterceptorTest {
                 .setEngine(mockConsumerActor.createFactory())
                 .install(WorkerInterceptor {
                     it.executeNext()
-                    println("INTERCEPT SUCCESS")
                     JobStatus.Success
                 })
                 .handlePiped {
                     it
-                        .execute { false.also { println("EXECUTE FALSE")  }}
+                        .execute { false }
                         .end()
 
                 }
@@ -292,13 +291,12 @@ class WorkerInterceptorTest {
                 .setEngine(mockConsumerActor.createFactory())
                 .install(WorkerInterceptor {
                     it.executeNext()
-                    println("INTERCEPT SUCCESS")
                     JobStatus.Success
                 })
                 .handlePiped {
                     it
                         .execute { true }
-                        .execute { false.also { println("EXECUTE FALSE")  }}
+                        .execute { false }
                         .end()
 
                 }
@@ -321,7 +319,6 @@ class WorkerInterceptorTest {
                 .setEngine(mockConsumerActor.createFactory())
                 .install(WorkerInterceptor {
                     it.executeNext()
-                    println("INTERCEPT PERMANENT FAILURE")
                     JobStatus.PermanentFailure
                 })
                 .install(WorkerInterceptor {
@@ -331,7 +328,7 @@ class WorkerInterceptorTest {
                 .handlePiped {
                     it
                         .execute { true }
-                        .execute { false.also { println("EXECUTE FALSE") } }
+                        .execute { false }
                         .end()
 
                 }
