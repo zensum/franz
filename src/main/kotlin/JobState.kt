@@ -90,7 +90,6 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
 
         }
 
-        // TODO: This can be made prettier
         val firstInterceptor = when(interceptors.size){
             0 -> lastInterceptor
             else -> {
