@@ -255,20 +255,4 @@ class JobStateTest {
 
         assertEquals(JobStatus.TransientFailure, state)
     }
-
-    suspend fun suspendingFunction(): Boolean = true
-
-    @Test
-    fun testMapWithSuspendFunctionWillCompile() {
-        runBlocking {
-            jobOne
-                .advanceIf { suspendingFunction() }
-                .execute { suspendingFunction() }
-                .require { suspendingFunction() }
-                .sideEffect { suspendingFunction() }
-                .map { suspendingFunction() }
-                .end { suspendingFunction() }
-        }
-    }
-
 }

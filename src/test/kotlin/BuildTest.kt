@@ -4,7 +4,10 @@ import org.junit.Test
 
 class BuildTest{
 
-    private suspend fun suspendingFunction() { "Lets do nothing" }
+    private suspend fun suspendMap() = "test"
+    private suspend fun suspendPredicate() =  true
+    private suspend fun suspendUnit(): Unit { }
+
 
     @Test
     fun testMapWithSuspendFunctionWillCompile() {
@@ -16,7 +19,10 @@ class BuildTest{
                 .setEngine(MockConsumerActor.ofString().createFactory())
                 .handlePiped {
                     it
-                        .map { suspendingFunction() }
+                        .map { suspendMap() }
+                        .require { suspendPredicate() }
+                        .execute { suspendPredicate() }
+                        .sideEffect { suspendUnit() }
                         .end()
 
                 }

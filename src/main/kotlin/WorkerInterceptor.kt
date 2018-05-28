@@ -2,7 +2,7 @@ package franz
 
 class WorkerInterceptor(
     var next: WorkerInterceptor? = null,
-    val onIntercept: ((WorkerInterceptor) -> JobStatus) = {
+    inline val onIntercept: ((WorkerInterceptor) -> JobStatus) = {
         it.executeNext()
     }
 ){
@@ -14,4 +14,6 @@ class WorkerInterceptor(
             return JobStatus.Success
         }
     }
+
+    inline fun <U> executeFinal(fn: (U) -> Boolean, value: U) = fn(value)
 }
