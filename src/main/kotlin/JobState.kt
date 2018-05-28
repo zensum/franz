@@ -60,7 +60,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
      * [JobStatus] can never be [JobStatus.Incomplete] when returning from this function (unless that was the status
      * prior to this function call).
      * */
-    fun end(predicate: (U) -> Boolean): JobStatus {
+    inline fun end(predicate: (U) -> Boolean): JobStatus {
         if (inProgress()) {
             this.status = when (predicate(value!!)) {
                 true -> JobStatus.Success
@@ -103,7 +103,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
         return this
     }
 
-    fun <R: Any> map(transform: (U) -> R): JobState<R> {
+    inline fun <R: Any> map(transform: (U) -> R): JobState<R> {
         val transFormedVal: R? = when (inProgress()) {
             true -> value?.let(transform)
             false -> null
