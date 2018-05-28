@@ -2,6 +2,7 @@ package franz
 
 import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
+import kotlinx.coroutines.experimental.Job
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -36,7 +37,7 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString().createFactory())
-                .install(WorkerInterceptor {})
+                .install(WorkerInterceptor())
                 .handlePiped {
                     it
                         .execute { true }
@@ -56,9 +57,9 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString().createFactory())
-                .install(WorkerInterceptor{})
-                .install(WorkerInterceptor{})
-                .install(WorkerInterceptor{})
+                .install(WorkerInterceptor())
+                .install(WorkerInterceptor())
+                .install(WorkerInterceptor())
                 .handlePiped {
                     it
                         .end()
@@ -135,7 +136,7 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor{ /* Explicitly don't runt it.executeNext() */})
+                .install(WorkerInterceptor()) /* Explicitly don't runt it.executeNext() */
                 .install(WorkerInterceptor{it.executeNext()})
                 .handlePiped {
                     it
@@ -181,6 +182,7 @@ class WorkerInterceptorTest {
                     }catch (e: DummyException){
                         exceptionEncountered = true
                     }
+                    JobStatus.PermanentFailure
                 })
                 .handlePiped {
                     it
@@ -204,6 +206,7 @@ class WorkerInterceptorTest {
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
                 .install(WorkerInterceptor {
                     count ++
+                    JobStatus.Success
                 })
                 .handlePiped {
                     it
@@ -236,6 +239,7 @@ class WorkerInterceptorTest {
                 )).createFactory())
                 .install(WorkerInterceptor {
                     count ++
+                    JobStatus.Success
                 })
                 .handlePiped {
                     it
@@ -248,5 +252,124 @@ class WorkerInterceptorTest {
 
         // One interceptor, one job stages, four messages
         assertEquals(4, count)
+    }
+
+    @Test
+    fun overrideJobStatus(){
+        val mockConsumerActor = MockConsumerActor.ofString(listOf(createTestMessage()))
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockConsumerActor.createFactory())
+                .install(WorkerInterceptor {
+                    it.executeNext()
+                    println("INTERCEPT SUCCESS")
+                    JobStatus.Success
+                })
+                .handlePiped {
+                    it
+                        .execute { false.also { println("EXECUTE FALSE")  }}
+                        .end()
+
+                }
+
+        worker.start()
+
+        val result = mockConsumerActor.results().first()
+
+        // As the execute block returns false, this should result in an error. However, the interceptor override the result making it a success
+        assertEquals(JobStatus.Success, result.status)
+    }
+
+    @Test
+    fun overrideMultipleJobStatus(){
+        val mockConsumerActor = MockConsumerActor.ofString(listOf(createTestMessage()))
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockConsumerActor.createFactory())
+                .install(WorkerInterceptor {
+                    it.executeNext()
+                    println("INTERCEPT SUCCESS")
+                    JobStatus.Success
+                })
+                .handlePiped {
+                    it
+                        .execute { true }
+                        .execute { false.also { println("EXECUTE FALSE")  }}
+                        .end()
+
+                }
+
+        worker.start()
+
+        val result = mockConsumerActor.results().first()
+
+        // As the execute block returns false, this should result in an error. However, the interceptor override the result making it a success
+        assertEquals(JobStatus.Success, result.status)
+    }
+
+    @Test
+    fun overrideMultipleInterceptors(){
+        val mockConsumerActor = MockConsumerActor.ofString(listOf(createTestMessage()))
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockConsumerActor.createFactory())
+                .install(WorkerInterceptor {
+                    it.executeNext()
+                    println("INTERCEPT PERMANENT FAILURE")
+                    JobStatus.PermanentFailure
+                })
+                .install(WorkerInterceptor {
+                    it.executeNext()
+                    JobStatus.TransientFailure
+                })
+                .handlePiped {
+                    it
+                        .execute { true }
+                        .execute { false.also { println("EXECUTE FALSE") } }
+                        .end()
+
+                }
+
+        worker.start()
+
+        val result = mockConsumerActor.results().first()
+
+        // The last interceptor returns a permanent failure, so that should be the final result of the worker
+        assertEquals(JobStatus.PermanentFailure, result.status)
+    }
+
+    @Test
+    fun mapJobState(){
+        var count = 0
+
+        val worker =
+            WorkerBuilder.ofByteArray
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
+                .install(WorkerInterceptor {
+                    count ++
+                    it.executeNext()
+                })
+                .handlePiped {
+                    it
+                        .execute { true }
+                        .map { it.key() }
+                        .execute { false }
+                        .require { false }
+                        .end()
+
+                }
+
+        worker.start()
+
+        // Map does not go trough JobState.process and therefor don't have the interceptors run over them. So in these four steps, only execute and require triggers interceptors.
+        assertEquals(3, count)
     }
 }

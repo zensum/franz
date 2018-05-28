@@ -50,6 +50,7 @@ data class WorkerBuilder<T> private constructor(
     }
 
     private fun setupInterceptors(){
+        // TODO: This could probably be made a bit prettier
         if(interceptors.size > 2){
             for(i in 1 .. interceptors.size){
                 interceptors[i -1].next = interceptors[i]

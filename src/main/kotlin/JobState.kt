@@ -81,11 +81,16 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
     fun process(newStatus: JobStatus, predicate: (U) -> Boolean, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {
             if (inProgress() && !predicate(value!!)) {
-                this.status = newStatus
+                //this.status = newStatus
                 msg?.let { log.debug("Failed on: $it") }
+                newStatus
+            }else{
+                this.status
             }
+
         }
 
+        // TODO: This can be made prettier
         val firstInterceptor = when(interceptors.size){
             0 -> lastInterceptor
             else -> {
@@ -94,7 +99,8 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
             }
         }
 
-        firstInterceptor.onIntercept(firstInterceptor)
+        val endValue = firstInterceptor.onIntercept(firstInterceptor)
+        this.status = endValue
 
         return this
     }
