@@ -81,7 +81,6 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
     fun process(newStatus: JobStatus, predicate: (U) -> Boolean, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {
             if (inProgress() && !predicate(value!!)) {
-                //this.status = newStatus
                 msg?.let { log.debug("Failed on: $it") }
                 newStatus
             }else{

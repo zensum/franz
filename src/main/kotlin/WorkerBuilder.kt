@@ -1,6 +1,5 @@
 package franz
 
-import com.sun.xml.internal.ws.api.pipe.FiberContextSwitchInterceptor
 import franz.engine.ConsumerActorFactory
 import franz.engine.WorkerFunction
 import franz.engine.kafka_one.KafkaConsumerActorFactory
