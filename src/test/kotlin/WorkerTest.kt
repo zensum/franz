@@ -79,4 +79,30 @@ class WorkerTest{
         assertEquals(3, mockedActor.results().size)
         assertEquals(0, mockedActor.results().filter { it.status == JobStatus.Success }.size)
     }
+
+    @Test
+    fun testMultipleAllJobStates(){
+        val mockedActor = MockConsumerActor.ofString(
+            listOf(
+                getTestMessage("dummy")
+            )
+        )
+
+        WorkerBuilder.ofString
+            .subscribedTo("TOPIC")
+            .groupId("TOPIC")
+            .setEngine(mockedActor.createFactory())
+            .handlePiped {
+                it
+                    .map { it.value() }
+                    .require { true }
+                    .execute { true }
+                    .sideEffect {  }
+                    .end()
+
+            }
+            .start()
+
+        assertEquals(JobStatus.Success, mockedActor.results().first().status)
+    }
 }
