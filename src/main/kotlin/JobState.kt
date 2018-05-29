@@ -22,16 +22,16 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
      * Use when an operation must succeed or it is considered a permanent failure and should not trigger a retry,
      * like checking the validity of phone number or mail address.
      */
-    inline fun require(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure,  predicate)
-    inline fun require(msg: String, predicate: (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure, predicate, msg)
+    suspend fun require(predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure,  predicate)
+    suspend fun require(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure, predicate, msg)
 
     /**
      * Use when an operation may fail in such a why that a retry should be scheduled, like an error that is
      * a result of a network connectivity issue or similar. In other words, there is nothing in the job itself
      * that is erroneous, only the conditions for when it was executed.
      */
-    inline fun execute(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.TransientFailure, predicate)
-    inline fun execute(msg: String, predicate: (U) -> Boolean): JobState<U> = process(JobStatus.TransientFailure, predicate, msg)
+    suspend fun execute(predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.TransientFailure, predicate)
+    suspend fun execute(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.TransientFailure, predicate, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -39,14 +39,14 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
      *  Everything is in its order but the current job should not trigger any further action and resolve
      *  to [JobStatus.Success].
      */
-    inline fun advanceIf(predicate: (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate)
-    inline fun advanceIf(msg: String, predicate: (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate, msg)
+    suspend fun advanceIf(predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate)
+    suspend fun advanceIf(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate, msg)
 
     /**
      * Use for modelling a side-effect which doesn't have a return status. This
      * function is equivalent to calling require with a function that always returns true.
      */
-    inline fun sideEffect(fn: (U) -> Unit): JobState<U> = execute { fn(it!!); true }
+    suspend fun sideEffect(fn: suspend (U) -> Unit): JobState<U> = execute { fn(it!!); true }
 
     /**
      * If the [JobState] is non-terminal mark it as a success
@@ -78,25 +78,29 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
         return status
     }
 
-    inline fun process(newStatus: JobStatus, predicate: (U) -> Boolean, msg: String? = null): JobState<U> {
+    suspend fun process(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
+        val lastInterceptor = WorkerInterceptor {
+            if (inProgress() && !predicate(value!!)) {
+                msg?.let { log.debug("Failed on: $it") }
+                newStatus
+            }else{
+                this.status
+            }
 
-        val interceptor = interceptors.firstOrNull()
-
-        this.status = when(interceptor){
-            null -> run(newStatus, predicate, msg)
-            else -> interceptor.onIntercept(interceptor)
         }
+
+        val firstInterceptor = when(interceptors.size){
+            0 -> lastInterceptor
+            else -> {
+                interceptors.last().next = lastInterceptor
+                interceptors.first()
+            }
+        }
+
+        val endValue = firstInterceptor.onIntercept(firstInterceptor)
+        this.status = endValue
 
         return this
-    }
-
-    inline fun run(newStatus: JobStatus, predicate: (U) -> Boolean, msg: String? = null): JobStatus {
-        if (inProgress() && !predicate(value!!)) {
-            this.status = newStatus
-            msg?.let { log.debug("Failed on: $it") }
-        }
-
-        return this.status
     }
 
     inline fun <R: Any> map(transform: (U) -> R): JobState<R> {

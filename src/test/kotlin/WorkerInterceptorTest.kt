@@ -2,7 +2,6 @@ package franz
 
 import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
-import kotlinx.coroutines.experimental.Job
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

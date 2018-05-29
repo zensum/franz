@@ -41,9 +41,11 @@ class JobStateTest {
     @Test
     fun testValidateTrue() {
         val job = jobOne
-        val status = job
+        val status = runBlocking {
+            job
                 .require { true }
                 .require { true }
+        }
 
         assertEquals(JobStatus.Incomplete, status.status)
     }
@@ -51,10 +53,12 @@ class JobStateTest {
     @Test
     fun testValidateFalse() {
         val job = jobOne
-        val status = job
+        val status = runBlocking {
+            job
                 .require { true }
                 .require { false }
                 .require { true }
+        }
 
         assertEquals(JobStatus.PermanentFailure, status.status)
     }
@@ -62,9 +66,11 @@ class JobStateTest {
     @Test
     fun testExecuteTrue() {
         val job = jobOne
-        val status = job
+        val status = runBlocking {
+            job
                 .execute { true }
                 .execute { true }
+        }
 
         assertEquals(JobStatus.Incomplete, status.status)
     }
@@ -72,10 +78,12 @@ class JobStateTest {
     @Test
     fun testExecuteFalse() {
         val job = jobOne
-        val status = job
+        val status = runBlocking {
+            job
                 .execute { true }
                 .execute { false }
                 .execute { true }
+        }
 
         assertEquals(JobStatus.TransientFailure, status.status)
     }
@@ -83,9 +91,11 @@ class JobStateTest {
     @Test
     fun testConfirmTrue() {
         val job = jobOne
-        val status = job
+        val status = runBlocking {
+            job
                 .advanceIf { true }
                 .advanceIf { true }
+        }
 
         assertEquals(JobStatus.Incomplete, status.status)
     }
@@ -93,10 +103,12 @@ class JobStateTest {
     @Test
     fun testConfirmFalse() {
         val job = jobOne
-        val status = job
+        val status = runBlocking {
+            job
                 .advanceIf { true }
                 .advanceIf { false }
                 .advanceIf { true }
+        }
 
         assertEquals(JobStatus.Success, status.status)
     }
@@ -104,11 +116,13 @@ class JobStateTest {
     @Test
     fun testMapSuccessful() {
         val job = jobOne
-        val status = job
-            .require { true }
-            .map { it.value() }
-            .map(Integer::parseInt)
-            .require { it == 1 }
+        val status = runBlocking {
+            job
+                .require { true }
+                .map { it.value() }
+                .map(Integer::parseInt)
+                .require { it == 1 }
+        }
 
         assertEquals(1, status.value)
     }
@@ -117,11 +131,13 @@ class JobStateTest {
     fun testMapToNull() {
         val job = jobOne
 
-        val state = job
-            .require { true }
-            .require { false }
-            .map { it.value() }
-            .map(Integer::parseInt)
+        val state = runBlocking {
+            job
+                .require { true }
+                .require { false }
+                .map { it.value() }
+                .map(Integer::parseInt)
+        }
 
         assertNull(state.value)
     }
@@ -130,11 +146,13 @@ class JobStateTest {
     fun testEndSuccessful() {
         val job = jobOne
 
-        val status = job
+        val status = runBlocking {
+            job
                 .require { true }
                 .execute { true }
                 .advanceIf { true }
                 .end { true }
+        }
 
         assertEquals(JobStatus.Success, status)
     }
@@ -143,11 +161,13 @@ class JobStateTest {
     fun testEndFailure() {
         val job = jobOne
 
-        val status = job
+        val status = runBlocking {
+            job
                 .require { true }
                 .execute { true }
                 .advanceIf { true }
                 .end { false }
+        }
 
         assertEquals(JobStatus.TransientFailure, status)
     }
@@ -155,14 +175,16 @@ class JobStateTest {
     @Test
     fun testConversionWithTwoMapsInSequence() {
         val job = jobOne
-        val result = job
-            .advanceIf { it.value().isNotEmpty() }
-            .map { it.value() }
-            .map(Integer::parseInt)
-            .map { it * 2 }
-            .map { it + 4 }
-            .require { it > 1 }
-            .end { it > 0 }
+        val result = runBlocking {
+            job
+                .advanceIf { it.value().isNotEmpty() }
+                .map { it.value() }
+                .map(Integer::parseInt)
+                .map { it * 2 }
+                .map { it + 4 }
+                .require { it > 1 }
+                .end { it > 0 }
+        }
 
         assertEquals(JobStatus.Success, result)
     }
@@ -170,14 +192,16 @@ class JobStateTest {
     @Test
     fun testConversionWithFailingValidationAndMap() {
         val job = jobOne
-        val result = job
-            .map { it.value() }
-            .advanceIf { it.isNotEmpty() }
-            .map(Integer::parseInt)
-            .map { it * 2 }
-            .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
-            .map { it + 4 }
-            .end { it > 0 }
+        val result = runBlocking {
+            job
+                .map { it.value() }
+                .advanceIf { it.isNotEmpty() }
+                .map(Integer::parseInt)
+                .map { it * 2 }
+                .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
+                .map { it + 4 }
+                .end { it > 0 }
+        }
 
         assertEquals(JobStatus.PermanentFailure, result)
     }
@@ -190,14 +214,16 @@ class JobStateTest {
 
     @Test
     fun testNullaryEndNonSuccess() {
-        val res = jobOne.require { false }.end()
+        val res = runBlocking { jobOne.require { false }.end() }
         assertNotEquals(JobStatus.Success, res)
     }
 
     @Test
     fun testSideeffectCalled() {
         var effectCalled = false
-        val res = jobOne.sideEffect { effectCalled = true }.end()
+        val res = runBlocking {
+            jobOne.sideEffect { effectCalled = true }.end()
+        }
         assertEquals(JobStatus.Success, res)
         assertTrue { effectCalled }
     }
@@ -205,7 +231,9 @@ class JobStateTest {
     @Test
     fun testSideeffectNotCalled() {
         var effectCalled = false
-        jobOne.require { false }.sideEffect { effectCalled = true }.end()
+        runBlocking {
+            jobOne.require { false }.sideEffect { effectCalled = true }.end()
+        }
         assertFalse { effectCalled }
     }
 
@@ -222,36 +250,44 @@ class JobStateTest {
 
     @Test
     fun testRequireWithLogMessage() {
-        val state = jobOne
-            .require("This predicate must be true") { false }
-            .end()
+        val state = runBlocking {
+            jobOne
+                .require("This predicate must be true") { false }
+                .end()
+        }
 
         assertEquals(JobStatus.PermanentFailure, state)
     }
 
     @Test
     fun testExecuteWithLogMessage() {
-        val state = jobOne
-            .execute("This predicate must be true") { false }
-            .end()
+        val state = runBlocking {
+            jobOne
+                .execute("This predicate must be true") { false }
+                .end()
+        }
 
         assertEquals(JobStatus.TransientFailure, state)
     }
 
     @Test
     fun testAdvanceIfWithLogMessage() {
-        val state = jobOne
-            .advanceIf("This predicate must be true") { false }
-            .end()
+        val state = runBlocking {
+            jobOne
+                .advanceIf("This predicate must be true") { false }
+                .end()
+        }
 
         assertEquals(JobStatus.Success, state)
     }
 
     @Test
     fun testWithNullAsLogMessage() {
-        val state = jobOne
-            .process(JobStatus.TransientFailure, { false }, null)
-            .end()
+        val state = runBlocking {
+            jobOne
+                .process(JobStatus.TransientFailure, { false }, null)
+                .end()
+        }
 
         assertEquals(JobStatus.TransientFailure, state)
     }
