@@ -51,7 +51,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
     /**
      * If the [JobState] is non-terminal mark it as a success
      */
-    fun success(): JobState<U> = also { it.status = JobStatus.Success }
+    suspend fun success(): JobState<U> = also { it.status = JobStatus.Success }
 
     /**
      * Use when conducting the final operation on the job. If it successfully done (the predicate returns true)
@@ -60,7 +60,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
      * [JobStatus] can never be [JobStatus.Incomplete] when returning from this function (unless that was the status
      * prior to this function call).
      * */
-    inline fun end(predicate: (U) -> Boolean): JobStatus {
+    fun end(predicate: (U) -> Boolean): JobStatus {
         if (inProgress()) {
             this.status = when (predicate(value!!)) {
                 true -> JobStatus.Success
@@ -72,7 +72,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
     }
 
     @JvmName("endNullary")
-    fun end(): JobStatus {
+    suspend fun end(): JobStatus {
         this.status = JobStatus.Success
         log.debug { "Ended with status ${this.status.name}" }
         return status
@@ -103,7 +103,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
         return this
     }
 
-    inline fun <R: Any> map(transform: (U) -> R): JobState<R> {
+    suspend fun <R: Any> map(transform: (U) -> R): JobState<R> {
         val transFormedVal: R? = when (inProgress()) {
             true -> value?.let(transform)
             false -> null
