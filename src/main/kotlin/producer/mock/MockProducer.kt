@@ -14,10 +14,9 @@ class MockProducer<K, V>(
     val sendRawResult: ProduceResult = MockProduceResult(),
     val onSend: (V) -> Unit = {},
     val onSendAsync: (V) -> Unit = {},
-    val onSendRaw: (V) -> Unit = {},
-    private val results: MutableList<V>
-
+    val onSendRaw: (V) -> Unit = {}
 ): Producer<K, V> {
+    private val results: MutableList<V> = mutableListOf()
     private fun doSend(rec: ProducerRecord<K, V>): CompletableFuture<ProduceResult> {
         results.add(rec.value())
         onSend.invoke(rec.value())
