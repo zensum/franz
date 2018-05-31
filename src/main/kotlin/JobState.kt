@@ -6,7 +6,7 @@ val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
 fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
-class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val interceptors: List<WorkerInterceptor> = emptyList()) {
+class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerInterceptor> = emptyList()) {
     var status: JobStatus = JobStatus.Incomplete
 
         get() = field
