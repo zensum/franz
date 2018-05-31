@@ -14,25 +14,30 @@ class MockProducer<K, V>(
     val sendRawResult: ProduceResult = MockProduceResult(),
     val onSend: (V) -> Unit = {},
     val onSendAsync: (V) -> Unit = {},
-    val onSendRaw: (V) -> Unit = {}
+    val onSendRaw: (V) -> Unit = {},
+    private val results: MutableList<V>
 
 ): Producer<K, V> {
     private fun doSend(rec: ProducerRecord<K, V>): CompletableFuture<ProduceResult> {
+        results.add(rec.value())
         onSend.invoke(rec.value())
         return supplyAsync { doSendResult }
     }
 
     override fun sendAsync(topic: String, key: K?, value: V): ProduceResultF {
+        results.add(value)
         onSendAsync.invoke(value)
         return supplyAsync { sendAsyncResult }
     }
 
     override fun sendRaw(rec: ProducerRecord<K, V>): CompletableFuture<ProduceResult> {
+        results.add(rec.value())
         onSendRaw.invoke(rec.value())
         return supplyAsync { sendRawResult }
     }
 
     override fun sendAsync(topic: String, key: K?, value: V, headers: Iterable<Pair<String, ByteArray>>): ProduceResultF {
+        results.add(value)
         onSendAsync.invoke(value)
         return supplyAsync { sendAsyncResult }
     }
@@ -40,4 +45,7 @@ class MockProducer<K, V>(
 
     fun createFactory() =
         MockProducerFactory(this)
+
+    fun getResults(): List<V> =
+        results.toList()
 }
