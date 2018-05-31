@@ -72,7 +72,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
     }
 
     @JvmName("endNullary")
-    suspend fun end(): JobStatus {
+    fun end(): JobStatus {
         this.status = JobStatus.Success
         log.debug { "Ended with status ${this.status.name}" }
         return status
@@ -103,9 +103,9 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
         return this
     }
 
-    suspend fun <R: Any> map(transform: (U) -> R): JobState<R> {
+    inline fun <R: Any> map(transform: (U) -> R): JobState<R> {
         val transFormedVal: R? = when (inProgress()) {
-            true -> value?.let(transform)
+            true -> transform(value!!)
             false -> null
         }
 
