@@ -60,7 +60,7 @@ class JobState<U: Any> @PublishedApi internal constructor(val value: U?, val int
      * [JobStatus] can never be [JobStatus.Incomplete] when returning from this function (unless that was the status
      * prior to this function call).
      * */
-    suspend fun end(predicate: (U) -> Boolean): JobStatus {
+    suspend fun end(predicate: suspend (U) -> Boolean): JobStatus {
         if (inProgress()) {
             this.status = when (predicate(value!!)) {
                 true -> JobStatus.Success

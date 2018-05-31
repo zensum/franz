@@ -22,7 +22,7 @@ class BuildTest{
                     .require { suspendPredicate() }
                     .execute { suspendPredicate() }
                     .sideEffect { suspendUnit() }
-                    .end()
+                    .end { suspendPredicate() }
 
             }
     }
