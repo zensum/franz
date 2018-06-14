@@ -280,15 +280,4 @@ class JobStateTest {
 
         assertEquals(JobStatus.Success, state)
     }
-
-    @Test
-    fun testWithNullAsLogMessage() {
-        val state = runBlocking {
-            jobOne
-                .process(JobStatus.TransientFailure, { false }, null)
-                .end()
-        }
-
-        assertEquals(JobStatus.TransientFailure, state)
-    }
 }
