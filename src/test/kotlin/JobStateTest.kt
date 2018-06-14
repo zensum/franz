@@ -280,4 +280,28 @@ class JobStateTest {
 
         assertEquals(JobStatus.Success, state)
     }
+
+    @Test
+    fun testPerformSuccess() {
+        val state = runBlocking {
+            jobOne
+                .perform { JobStatus.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testPerformHaltPipe() {
+        val state = runBlocking {
+            jobOne
+                .perform { JobStatus.Success }
+                .perform { JobStatus.TransientFailure }
+                .perform { JobStatus.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
 }

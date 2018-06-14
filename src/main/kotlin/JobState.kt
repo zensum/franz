@@ -22,16 +22,24 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Use when an operation must succeed or it is considered a permanent failure and should not trigger a retry,
      * like checking the validity of phone number or mail address.
      */
-    suspend fun require(predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure,  predicate)
-    suspend fun require(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.PermanentFailure, predicate, msg)
+    suspend fun require(predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.PermanentFailure,  predicate)
+    suspend fun require(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.PermanentFailure, predicate, msg)
 
     /**
      * Use when an operation may fail in such a why that a retry should be scheduled, like an error that is
      * a result of a network connectivity issue or similar. In other words, there is nothing in the job itself
      * that is erroneous, only the conditions for when it was executed.
      */
-    suspend fun execute(predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.TransientFailure, predicate)
-    suspend fun execute(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.TransientFailure, predicate, msg)
+    suspend fun execute(predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.TransientFailure, predicate)
+    suspend fun execute(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.TransientFailure, predicate, msg)
+
+    /**
+     * Use when an operation can result in either success, permanent failure or transient failure. This is quite common
+     * if an external resource is queried and the response may be successfully or trigger either a permanent, transient failure.
+     */
+    // TODO: RENAME ME
+    suspend fun perform(fn: suspend (U) -> JobStatus) = processWorkerFunction(fn)
+    suspend fun perform(msg: String, fn: suspend (U) -> JobStatus) = processWorkerFunction(fn, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -39,14 +47,14 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      *  Everything is in its order but the current job should not trigger any further action and resolve
      *  to [JobStatus.Success].
      */
-    suspend fun advanceIf(predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate)
-    suspend fun advanceIf(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = process(JobStatus.Success, predicate, msg)
+    suspend fun advanceIf(predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.Success, predicate)
+    suspend fun advanceIf(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.Success, predicate, msg)
 
     /**
      * Use for modelling a side-effect which doesn't have a return status. This
      * function is equivalent to calling require with a function that always returns true.
      */
-    suspend fun sideEffect(fn: suspend (U) -> Unit): JobState<U> = execute { fn(it!!); true }
+    suspend fun sideEffect(fn: suspend (U) -> Unit): JobState<U> = execute { fn(it); true }
 
     /**
      * If the [JobState] is non-terminal mark it as a success
@@ -78,7 +86,17 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         return status
     }
 
-    suspend fun process(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
+    private suspend fun processWorkerFunction(fn: suspend(U) -> JobStatus, msg: String? = null): JobState<U>
+    {
+        val lastInterceptor = WorkerInterceptor {
+            fn(value!!)
+        }
+
+        return process(lastInterceptor)
+        return this
+    }
+
+    private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {
             if (inProgress() && !predicate(value!!)) {
                 msg?.let { log.debug("Failed on: $it") }
@@ -86,9 +104,13 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             }else{
                 this.status
             }
-
         }
 
+        return process(lastInterceptor)
+
+    }
+
+    private suspend fun process(lastInterceptor: WorkerInterceptor): JobState<U>{
         val firstInterceptor = when(interceptors.size){
             0 -> lastInterceptor
             else -> {
