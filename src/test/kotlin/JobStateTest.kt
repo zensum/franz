@@ -285,7 +285,7 @@ class JobStateTest {
     fun testPerformSuccess() {
         val state = runBlocking {
             jobOne
-                .perform { JobStatus.Success }
+                .perform { WorkerResult.Success }
                 .end()
         }
 
@@ -293,15 +293,63 @@ class JobStateTest {
     }
 
     @Test
-    fun testPerformHaltPipe() {
+    fun testPerformRetry() {
         val state = runBlocking {
             jobOne
-                .perform { JobStatus.Success }
-                .perform { JobStatus.TransientFailure }
-                .perform { JobStatus.Success }
+                .perform { WorkerResult.Retry }
                 .end()
         }
 
         assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testPerformFailure() {
+        val state = runBlocking {
+            jobOne
+                .perform { WorkerResult.Failure }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+    }
+
+    @Test
+    fun testPerformHaltPipe() {
+        val state = runBlocking {
+            jobOne
+                .perform { WorkerResult.Success }
+                .perform { WorkerResult.Retry }     // Execution should not continue after this
+                .perform { WorkerResult.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testPerformSuccesfullPipe() {
+        val state = runBlocking {
+            jobOne
+                .perform { WorkerResult.Success }
+                .perform { WorkerResult.Success }
+                .perform { WorkerResult.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testMixedOperations() {
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .perform { WorkerResult.Success }
+                .execute { true }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
     }
 }

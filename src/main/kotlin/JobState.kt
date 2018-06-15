@@ -37,9 +37,9 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Use when an operation can result in either success, permanent failure or transient failure. This is quite common
      * if an external resource is queried and the response may be successfully or trigger either a permanent, transient failure.
      */
-    // TODO: RENAME ME
-    suspend fun perform(fn: suspend (U) -> JobStatus) = processWorkerFunction(fn)
-    suspend fun perform(msg: String, fn: suspend (U) -> JobStatus) = processWorkerFunction(fn, msg)
+    // TODO: RENAME ME, for I have a poor name.
+    suspend fun perform(fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn)
+    suspend fun perform(msg: String, fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -86,10 +86,14 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         return status
     }
 
-    private suspend fun processWorkerFunction(fn: suspend(U) -> JobStatus, msg: String? = null): JobState<U>
+    private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U>
     {
         val lastInterceptor = WorkerInterceptor {
-            fn(value!!)
+            if(inProgress()) {
+                fn(value!!).toJobStatus()
+            }else{
+                this.status
+            }
         }
 
         return process(lastInterceptor)
@@ -135,4 +139,11 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         state.status = this.status
         return state
     }
+
+    private fun WorkerResult.toJobStatus() =
+        when(this){
+            WorkerResult.Success -> JobStatus.Incomplete
+            WorkerResult.Retry -> JobStatus.TransientFailure
+            WorkerResult.Failure -> JobStatus.PermanentFailure
+        }
 }
