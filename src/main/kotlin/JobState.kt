@@ -86,6 +86,32 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         return status
     }
 
+    /**
+     * Transforms the type of the job by using the supplied transform function.
+     * If an unhandled exception is encountered, sets the JobState to TransientFailure.
+     */
+    inline fun <R: Any> map(transform: (U) -> R): JobState<R>  = processMap(JobStatus.TransientFailure, transform)
+
+    /**
+     * Transforms the type of the job by using the supplied transform function.
+     * If an unhandled exception is encountered, sets the JobState to PermanentFailure.
+     */
+    inline fun <R: Any> mapRequire(transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform)
+
+    @PublishedApi
+    internal inline fun <R: Any> processMap(newStatus: JobStatus, transform: (U) -> R): JobState<R>{
+        try{
+            val transFormedVal: R? = when (inProgress()) {
+                true -> transform(value!!)
+                false -> null
+            }
+            return JobState(transFormedVal, this.interceptors).also { it.status = this.status }
+        }catch(e: Exception) {
+            logger.debug { "Failed to mapRequire: ${e.message}" }
+            return JobState<R>(null, interceptors).also { it.status = newStatus }
+        }
+    }
+
     private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U>
     {
         val lastInterceptor = WorkerInterceptor {
@@ -97,7 +123,6 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         }
 
         return process(lastInterceptor)
-        return this
     }
 
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
@@ -127,17 +152,6 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         this.status = endValue
 
         return this
-    }
-
-    inline fun <R: Any> map(transform: (U) -> R): JobState<R> {
-        val transFormedVal: R? = when (inProgress()) {
-            true -> transform(value!!)
-            false -> null
-        }
-
-        val state: JobState<R> = JobState(transFormedVal, interceptors)
-        state.status = this.status
-        return state
     }
 
     private fun WorkerResult.toJobStatus() =

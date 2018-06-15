@@ -143,6 +143,59 @@ class JobStateTest {
     }
 
     @Test
+    fun testMapThrows() {
+        val job = jobOne
+
+        val state = runBlocking {
+            job
+                .map { throw Exception("") }
+        }
+
+        assertEquals(JobStatus.TransientFailure, state.status)
+    }
+
+    @Test
+    fun testMapRequireSuccessful() {
+        val job = jobOne
+        val status = runBlocking {
+            job
+                .require { true }
+                .mapRequire { it.value() }
+                .mapRequire(Integer::parseInt)
+                .require { it == 1 }
+        }
+
+        assertEquals(1, status.value)
+    }
+
+    @Test
+    fun testMapRequireToNull() {
+        val job = jobOne
+
+        val state = runBlocking {
+            job
+                .require { true }
+                .require { false }
+                .mapRequire { it.value() }
+                .mapRequire(Integer::parseInt)
+        }
+
+        assertNull(state.value)
+    }
+
+    @Test
+    fun testMapRequireThrows() {
+        val job = jobOne
+
+        val state = runBlocking {
+            job
+                .mapRequire { throw Exception("") }
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state.status)
+    }
+
+    @Test
     fun testEndSuccessful() {
         val job = jobOne
 
