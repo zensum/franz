@@ -143,6 +143,59 @@ class JobStateTest {
     }
 
     @Test
+    fun testMapThrows() {
+        val job = jobOne
+
+        val state = runBlocking {
+            job
+                .map { throw Exception("") }
+        }
+
+        assertEquals(JobStatus.TransientFailure, state.status)
+    }
+
+    @Test
+    fun testMapRequireSuccessful() {
+        val job = jobOne
+        val status = runBlocking {
+            job
+                .require { true }
+                .mapRequire { it.value() }
+                .mapRequire(Integer::parseInt)
+                .require { it == 1 }
+        }
+
+        assertEquals(1, status.value)
+    }
+
+    @Test
+    fun testMapRequireToNull() {
+        val job = jobOne
+
+        val state = runBlocking {
+            job
+                .require { true }
+                .require { false }
+                .mapRequire { it.value() }
+                .mapRequire(Integer::parseInt)
+        }
+
+        assertNull(state.value)
+    }
+
+    @Test
+    fun testMapRequireThrows() {
+        val job = jobOne
+
+        val state = runBlocking {
+            job
+                .mapRequire { throw Exception("") }
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state.status)
+    }
+
+    @Test
     fun testEndSuccessful() {
         val job = jobOne
 
@@ -282,13 +335,74 @@ class JobStateTest {
     }
 
     @Test
-    fun testWithNullAsLogMessage() {
+    fun testPerformSuccess() {
         val state = runBlocking {
             jobOne
-                .process(JobStatus.TransientFailure, { false }, null)
+                .executeToResult { WorkerResult.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testPerformRetry() {
+        val state = runBlocking {
+            jobOne
+                .executeToResult { WorkerResult.Retry }
                 .end()
         }
 
         assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testPerformFailure() {
+        val state = runBlocking {
+            jobOne
+                .executeToResult { WorkerResult.Failure }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+    }
+
+    @Test
+    fun testPerformHaltPipe() {
+        val state = runBlocking {
+            jobOne
+                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.Retry }     // Execution should not continue after this
+                .executeToResult { WorkerResult.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testPerformSuccesfullPipe() {
+        val state = runBlocking {
+            jobOne
+                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testMixedOperations() {
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .executeToResult { WorkerResult.Success }
+                .execute { true }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
     }
 }
