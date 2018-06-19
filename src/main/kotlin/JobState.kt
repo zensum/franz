@@ -6,6 +6,8 @@ val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
 fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
+private val FAILED_JOB_STATUSES = listOf(WorkerResult.Failure, WorkerResult.Retry)
+
 class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerInterceptor> = emptyList()) {
     var status: JobStatus = JobStatus.Incomplete
 
@@ -37,9 +39,8 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Use when an operation can result in either success, permanent failure or transient failure. This is quite common
      * if an external resource is queried and the response may be successfully or trigger either a permanent, transient failure.
      */
-    // TODO: RENAME ME, for I have a poor name.
-    suspend fun perform(fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn)
-    suspend fun perform(msg: String, fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn, msg)
+    suspend fun executeToResult(fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn)
+    suspend fun executeToResult(msg: String, fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -112,11 +113,14 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         }
     }
 
-    private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U>
-    {
+    private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {
             if(inProgress()) {
-                fn(value!!).toJobStatus()
+                val result = fn(value!!)
+                if(FAILED_JOB_STATUSES.contains(result)){
+                    msg?.let {log.debug { "Failed on: $it" }}
+                }
+                result.toJobStatus()
             }else{
                 this.status
             }

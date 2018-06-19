@@ -338,7 +338,7 @@ class JobStateTest {
     fun testPerformSuccess() {
         val state = runBlocking {
             jobOne
-                .perform { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
                 .end()
         }
 
@@ -349,7 +349,7 @@ class JobStateTest {
     fun testPerformRetry() {
         val state = runBlocking {
             jobOne
-                .perform { WorkerResult.Retry }
+                .executeToResult { WorkerResult.Retry }
                 .end()
         }
 
@@ -360,7 +360,7 @@ class JobStateTest {
     fun testPerformFailure() {
         val state = runBlocking {
             jobOne
-                .perform { WorkerResult.Failure }
+                .executeToResult { WorkerResult.Failure }
                 .end()
         }
 
@@ -371,9 +371,9 @@ class JobStateTest {
     fun testPerformHaltPipe() {
         val state = runBlocking {
             jobOne
-                .perform { WorkerResult.Success }
-                .perform { WorkerResult.Retry }     // Execution should not continue after this
-                .perform { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.Retry }     // Execution should not continue after this
+                .executeToResult { WorkerResult.Success }
                 .end()
         }
 
@@ -384,9 +384,9 @@ class JobStateTest {
     fun testPerformSuccesfullPipe() {
         val state = runBlocking {
             jobOne
-                .perform { WorkerResult.Success }
-                .perform { WorkerResult.Success }
-                .perform { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
                 .end()
         }
 
@@ -398,7 +398,7 @@ class JobStateTest {
         val state = runBlocking {
             jobOne
                 .require { true }
-                .perform { WorkerResult.Success }
+                .executeToResult { WorkerResult.Success }
                 .execute { true }
                 .end()
         }
