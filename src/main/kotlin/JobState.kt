@@ -76,14 +76,14 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
                 false -> JobStatus.TransientFailure
             }
         }
-        log.debug { "Ended with status ${this.status.name}" }
+        log.info { "Ended with status ${this.status.name}" }
         return status
     }
 
     @JvmName("endNullary")
     fun end(): JobStatus {
         this.status = JobStatus.Success
-        log.debug { "Ended with status ${this.status.name}" }
+        log.info { "Ended with status ${this.status.name}" }
         return status
     }
 
@@ -110,7 +110,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             }
             return JobState(transFormedVal, this.interceptors).also { it.status = this.status }
         }catch(e: Exception) {
-            msg?.let { log.debug { "Failed on: $it" } }
+            msg?.let { log.info { "Failed on: $it" } }
             return JobState<R>(null, interceptors).also { it.status = newStatus }
         }
     }
@@ -120,7 +120,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             if(inProgress()) {
                 val result = fn(value!!)
                 if(FAILED_JOB_STATUSES.contains(result)){
-                    msg?.let {log.debug { "Failed on: $it" }}
+                    msg?.let {log.info { "Failed on: $it" }}
                 }
                 result.toJobStatus()
             }else{
@@ -134,7 +134,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {
             if (inProgress() && !predicate(value!!)) {
-                msg?.let { log.debug("Failed on: $it") }
+                msg?.let { log.info("Failed on: $it") }
                 newStatus
             }else{
                 this.status
