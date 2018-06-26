@@ -92,15 +92,17 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * If an unhandled exception is encountered, sets the JobState to TransientFailure.
      */
     inline fun <R: Any> map(transform: (U) -> R): JobState<R>  = processMap(JobStatus.TransientFailure, transform)
+    inline fun <R: Any> map(msg: String, transform: (U) -> R): JobState<R>  = processMap(JobStatus.TransientFailure, transform, msg)
 
     /**
      * Transforms the type of the job by using the supplied transform function.
      * If an unhandled exception is encountered, sets the JobState to PermanentFailure.
      */
     inline fun <R: Any> mapRequire(transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform)
+    inline fun <R: Any> mapRequire(msg: String, transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform, msg)
 
     @PublishedApi
-    internal inline fun <R: Any> processMap(newStatus: JobStatus, transform: (U) -> R): JobState<R>{
+    internal inline fun <R: Any> processMap(newStatus: JobStatus, transform: (U) -> R, msg: String? = null): JobState<R>{
         try{
             val transFormedVal: R? = when (inProgress()) {
                 true -> transform(value!!)
@@ -108,7 +110,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             }
             return JobState(transFormedVal, this.interceptors).also { it.status = this.status }
         }catch(e: Exception) {
-            logger.debug { "Failed to mapRequire: ${e.message}" }
+            msg?.let { log.debug { "Failed on: $it" } }
             return JobState<R>(null, interceptors).also { it.status = newStatus }
         }
     }
