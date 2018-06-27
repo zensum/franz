@@ -405,4 +405,87 @@ class JobStateTest {
 
         assertEquals(JobStatus.Success, state)
     }
+
+    @Test
+    fun testBranchIfSuccess(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { true }
+                        .jobStatus()
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testBranchIfFailure(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { false }
+                        .jobStatus()
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testBranchIfSuccesHalt(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { true }
+                        .end()
+                }
+                .execute { false }      // This shouldn't be run as the branch returned with success
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testBranchIfFailureHalt(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { false }
+                        .end()
+                }
+                .execute { true }      // This shouldn't be run as the branch returned with failure
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testSeveralBranches(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(false){ // This branch is never run
+                    it
+                        .execute { false }
+                        .end()
+                }
+                .branchIf(true){
+                    it
+                        .execute { true }
+                        .end()
+                }
+                .execute { false }      // This shouldn't be run as the branch returned with success
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
 }
