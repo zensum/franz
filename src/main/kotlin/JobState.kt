@@ -51,6 +51,10 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     suspend fun advanceIf(predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.Success, predicate)
     suspend fun advanceIf(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.Success, predicate, msg)
 
+    suspend fun branchIf(predicate: Boolean, fn: suspend (JobState<U>) -> JobStatus): JobStatus{
+        return fn(this)
+    }
+
     /**
      * Use for modelling a side-effect which doesn't have a return status. This
      * function is equivalent to calling require with a function that always returns true.
