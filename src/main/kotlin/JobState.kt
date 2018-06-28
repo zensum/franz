@@ -55,15 +55,10 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Use this when you wan't to branch of the execution of the worker. When the predicate is true, a now job state
      * worker s created and executed to either an end() or jobStatus().
      */
-    suspend fun branchIf(predicate: Boolean, fn: suspend (JobState<U>) -> JobStatus): JobState<U>{
-        val newStatus = when(predicate){
-            true -> fn(this)
-            false -> status
-        }
-
-        return JobState(value, interceptors).also { it.status = newStatus }
-    }
-
+    suspend fun branchIf(predicate: Boolean, fn: suspend (JobState<U>) -> JobStatus) = processBranch( { predicate }, fn)
+    suspend fun branchIf(predicate: suspend(U) -> Boolean, fn: suspend (JobState<U>) -> JobStatus) = processBranch(predicate, fn)
+    suspend fun branchIf(msg: String, predicate: Boolean, fn: suspend (JobState<U>) -> JobStatus) = processBranch( { predicate }, fn, msg)
+    suspend fun branchIf(msg: String, predicate: suspend(U) -> Boolean, fn: suspend (JobState<U>) -> JobStatus) = processBranch(predicate, fn, msg)
     /**
      * Use for modelling a side-effect which doesn't have a return status. This
      * function is equivalent to calling require with a function that always returns true.
@@ -131,6 +126,18 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             msg?.let { log.info { "Failed on: $it" } }
             return JobState<R>(null, interceptors).also { it.status = newStatus }
         }
+    }
+
+    private suspend fun processBranch(predicate: suspend(U) -> Boolean, fn: suspend (JobState<U>) -> JobStatus, msg: String? = null): JobState<U>{
+        val newStatus = when(predicate(value!!)){
+            true -> {
+                msg?.let{ log.info { "Entering branch: ${it}" } }
+                fn(this)
+            }
+            false -> status
+        }
+
+        return JobState(value, interceptors).also { it.status = newStatus }
     }
 
     private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U> {
