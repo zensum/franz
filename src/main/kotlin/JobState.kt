@@ -52,7 +52,8 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     suspend fun advanceIf(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.Success, predicate, msg)
 
     /**
-     * Use this when you wan't to branch of the execution of the worker
+     * Use this when you wan't to branch of the execution of the worker. When the predicate is true, a now job state
+     * worker s created and executed to either an end() or jobStatus().
      */
     suspend fun branchIf(predicate: Boolean, fn: suspend (JobState<U>) -> JobStatus): JobState<U>{
         val newStatus = when(predicate){
