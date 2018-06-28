@@ -261,7 +261,7 @@ class JobStateTest {
 
     @Test
     fun testNullaryEndIsSuccess() {
-        val res = jobOne.end()
+        val res = runBlocking { jobOne.end() }
         assertEquals(JobStatus.Success, res)
     }
 
@@ -483,6 +483,22 @@ class JobStateTest {
                         .end()
                 }
                 .execute { false }      // This shouldn't be run as the branch returned with success
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testPredicateBranch(){
+        val state = runBlocking {
+            jobOne
+                .map { "test" }
+                .branchIf({ it == "test"} ){ // This branch is never run
+                    it
+                        .execute { true }
+                        .end()
+                }
                 .end()
         }
 
