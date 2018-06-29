@@ -4,6 +4,7 @@ import mu.KotlinLogging
 
 typealias Predicate<U> = suspend (U) -> Boolean
 typealias WorkerFunction<U> = suspend (JobState<U>) -> JobStatus
+typealias SideEffect<U> = suspend (U) -> Unit
 
 val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
@@ -112,6 +113,13 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     inline fun <R: Any> mapRequire(transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform)
     inline fun <R: Any> mapRequire(msg: String, transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform, msg)
 
+
+    suspend fun onTransientFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure)
+    suspend fun onTransientFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure, msg = msg)
+
+    suspend fun onPermanentFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure)
+    suspend fun onPermanentFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure, msg = msg)
+
     private suspend fun processEnd(predicate: Predicate<U>, msg:String? = null): JobStatus {
         if (inProgress()) {
             this.status = when (predicate(value!!)) {
@@ -180,6 +188,13 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
         return process(lastInterceptor)
 
+    }
+
+    private suspend fun processOnFailure(fn: SideEffect<U>, msg: String? = null, vararg allowedStatuses: JobStatus){
+        if(allowedStatuses.contains(status)){
+            msg?.let { log.info { "Running on failure: ${it}" } }
+            fn(value!!)
+        }
     }
 
     private suspend fun process(lastInterceptor: WorkerInterceptor): JobState<U>{
