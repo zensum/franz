@@ -56,8 +56,8 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     suspend fun advanceIf(msg: String, predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.Success, predicate, msg)
 
     /**
-     * Use this when you wan't to branch of the execution of the worker. When the predicate is true, a now job state
-     * worker s created and executed to either an end() or jobStatus().
+     * Use this when you want to branch of the execution of the worker. When the predicate evaluates to true, a new jobState
+     * worker is created and executed to a JobStatus (by using either end() or jobStatus()).
      */
     suspend fun branchIf(predicate: Boolean, fn: WorkerFunction<U>) = processBranch( { predicate }, fn)
     suspend fun branchIf(predicate: Predicate<U>, fn: WorkerFunction<U>) = processBranch(predicate, fn)
@@ -85,14 +85,6 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     suspend fun end(predicate: Predicate<U>) = processEnd(predicate)
     suspend fun end(msg: String, predicate: Predicate<U>) = processEnd(predicate, msg)
     suspend fun end() = processEnd({true})
-    /*
-    @JvmName("endNullary")
-    fun end(): JobStatus {
-        this.status = JobStatus.Success
-        log.info { "Ended with status ${this.status.name}" }
-        return status
-    }
-    */
 
     /**
      * Exposes the current job status of the jobstate. Useful in branches when we don't want to call end to end execution.
