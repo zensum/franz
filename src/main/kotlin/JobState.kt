@@ -190,11 +190,13 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
     }
 
-    private suspend fun processOnFailure(fn: SideEffect<U>, msg: String? = null, vararg allowedStatuses: JobStatus){
+    private suspend fun processOnFailure(fn: SideEffect<U>, msg: String? = null, vararg allowedStatuses: JobStatus): JobState<U>{
         if(allowedStatuses.contains(status)){
             msg?.let { log.info { "Running on failure: ${it}" } }
             fn(value!!)
         }
+
+        return this
     }
 
     private suspend fun process(lastInterceptor: WorkerInterceptor): JobState<U>{
