@@ -504,4 +504,94 @@ class JobStateTest {
 
         assertEquals(JobStatus.Success, state)
     }
+
+    @Test
+    fun testOnTransientFailureWithTransientFailure(){
+        var hasRunTransientFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .execute { false }
+                .onTransientFailure { hasRunTransientFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+        assertTrue(hasRunTransientFailure)
+    }
+
+    @Test
+    fun testOnTransientFailureWithPermanentFailure(){
+        var hasRunTransientFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { false }
+                .onTransientFailure { hasRunTransientFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+        assertFalse(hasRunTransientFailure)
+    }
+
+    @Test
+    fun testOnTransientFailureWithIncomplete(){
+        var hasRunTransientFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .onTransientFailure { hasRunTransientFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+        assertFalse(hasRunTransientFailure)
+    }
+
+    @Test
+    fun testOnPermanentFailureWithTransientFailure(){
+        var hasRunPermanentFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .execute { false }
+                .onPermanentFailure { hasRunPermanentFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+        assertFalse(hasRunPermanentFailure)
+    }
+
+    @Test
+    fun testOnPermanentFailureWithPermanentFailure(){
+        var hasRunPermanentFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { false }
+                .onPermanentFailure { hasRunPermanentFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+        assertTrue(hasRunPermanentFailure)
+    }
+
+    @Test
+    fun testOnPermanentFailureWithIncomplete(){
+        var hasRunPermanentFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .onPermanentFailure { hasRunPermanentFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+        assertFalse(hasRunPermanentFailure)
+    }
 }

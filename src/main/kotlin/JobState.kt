@@ -114,9 +114,17 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     inline fun <R: Any> mapRequire(msg: String, transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform, msg)
 
 
+    /**
+     * Runs a side effect function only if the current state of the worker is a transient failure state.
+     * Useful for error handling in a piped worker.
+     */
     suspend fun onTransientFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure)
     suspend fun onTransientFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure, msg = msg)
 
+    /**
+     * Runs a side effect function only if the current state of the worker is a permanent failure state.
+     * Useful for error handling in a piped worker.
+     */
     suspend fun onPermanentFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure)
     suspend fun onPermanentFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure, msg = msg)
 
