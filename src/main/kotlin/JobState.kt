@@ -2,6 +2,10 @@ package franz
 
 import mu.KotlinLogging
 
+typealias Predicate<U> = suspend (U) -> Boolean
+typealias WorkerFunction<U> = suspend (JobState<U>) -> JobStatus
+typealias SideEffect<U> = suspend (U) -> Unit
+
 val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
 fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
@@ -24,16 +28,16 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Use when an operation must succeed or it is considered a permanent failure and should not trigger a retry,
      * like checking the validity of phone number or mail address.
      */
-    suspend fun require(predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.PermanentFailure,  predicate)
-    suspend fun require(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.PermanentFailure, predicate, msg)
+    suspend fun require(predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.PermanentFailure,  predicate)
+    suspend fun require(msg: String, predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.PermanentFailure, predicate, msg)
 
     /**
      * Use when an operation may fail in such a why that a retry should be scheduled, like an error that is
      * a result of a network connectivity issue or similar. In other words, there is nothing in the job itself
      * that is erroneous, only the conditions for when it was executed.
      */
-    suspend fun execute(predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.TransientFailure, predicate)
-    suspend fun execute(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.TransientFailure, predicate, msg)
+    suspend fun execute(predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.TransientFailure, predicate)
+    suspend fun execute(msg: String, predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.TransientFailure, predicate, msg)
 
     /**
      * Use when an operation can result in either success, permanent failure or transient failure. This is quite common
@@ -48,8 +52,17 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      *  Everything is in its order but the current job should not trigger any further action and resolve
      *  to [JobStatus.Success].
      */
-    suspend fun advanceIf(predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.Success, predicate)
-    suspend fun advanceIf(msg: String, predicate: suspend (U) -> Boolean): JobState<U> = processPredicate(JobStatus.Success, predicate, msg)
+    suspend fun advanceIf(predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.Success, predicate)
+    suspend fun advanceIf(msg: String, predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.Success, predicate, msg)
+
+    /**
+     * Use this when you want to branch of the execution of the worker. When the predicate evaluates to true, a new jobState
+     * worker is created and executed to a JobStatus (by using either end() or jobStatus()).
+     */
+    suspend fun branchIf(predicate: Boolean, fn: WorkerFunction<U>) = processBranch( { predicate }, fn)
+    suspend fun branchIf(predicate: Predicate<U>, fn: WorkerFunction<U>) = processBranch(predicate, fn)
+    suspend fun branchIf(msg: String, predicate: Boolean, fn: WorkerFunction<U>) = processBranch( { predicate }, fn, msg)
+    suspend fun branchIf(msg: String, predicate: Predicate<U>, fn: WorkerFunction<U>) = processBranch(predicate, fn, msg)
 
     /**
      * Use for modelling a side-effect which doesn't have a return status. This
@@ -69,23 +82,14 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * [JobStatus] can never be [JobStatus.Incomplete] when returning from this function (unless that was the status
      * prior to this function call).
      * */
-    suspend fun end(predicate: suspend (U) -> Boolean): JobStatus {
-        if (inProgress()) {
-            this.status = when (predicate(value!!)) {
-                true -> JobStatus.Success
-                false -> JobStatus.TransientFailure
-            }
-        }
-        log.info { "Ended with status ${this.status.name}" }
-        return status
-    }
+    suspend fun end(predicate: Predicate<U>) = processEnd(predicate)
+    suspend fun end(msg: String, predicate: Predicate<U>) = processEnd(predicate, msg)
+    suspend fun end() = processEnd({true})
 
-    @JvmName("endNullary")
-    fun end(): JobStatus {
-        this.status = JobStatus.Success
-        log.info { "Ended with status ${this.status.name}" }
-        return status
-    }
+    /**
+     * Exposes the current job status of the jobstate. Useful in branches when we don't want to call end to end execution.
+     */
+    fun jobStatus() = this.status
 
     /**
      * Transforms the type of the job by using the supplied transform function.
@@ -101,6 +105,35 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     inline fun <R: Any> mapRequire(transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform)
     inline fun <R: Any> mapRequire(msg: String, transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform, msg)
 
+
+    /**
+     * Runs a side effect function only if the current state of the worker is a transient failure state.
+     * Useful for error handling in a piped worker.
+     */
+    suspend fun onTransientFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure)
+    suspend fun onTransientFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure, msg = msg)
+
+    /**
+     * Runs a side effect function only if the current state of the worker is a permanent failure state.
+     * Useful for error handling in a piped worker.
+     */
+    suspend fun onPermanentFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure)
+    suspend fun onPermanentFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure, msg = msg)
+
+    private suspend fun processEnd(predicate: Predicate<U>, msg:String? = null): JobStatus {
+        if (inProgress()) {
+            this.status = when (predicate(value!!)) {
+                true -> JobStatus.Success
+                false -> {
+                    msg?.let { log.info { "Failed on: ${it}" }}
+                    JobStatus.TransientFailure
+                }
+            }
+        }
+        log.info { "Ended with status ${this.status.name}" }
+        return status
+    }
+
     @PublishedApi
     internal inline fun <R: Any> processMap(newStatus: JobStatus, transform: (U) -> R, msg: String? = null): JobState<R>{
         try{
@@ -113,6 +146,18 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             msg?.let { log.info { "Failed on: $it" } }
             return JobState<R>(null, interceptors).also { it.status = newStatus }
         }
+    }
+
+    private suspend fun processBranch(predicate: suspend(U) -> Boolean, fn: suspend (JobState<U>) -> JobStatus, msg: String? = null): JobState<U>{
+        val newStatus = when(predicate(value!!)){
+            true -> {
+                msg?.let{ log.info { "Entering branch: ${it}" } }
+                fn(this)
+            }
+            false -> status
+        }
+
+        return JobState(value, interceptors).also { it.status = newStatus }
     }
 
     private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U> {
@@ -143,6 +188,15 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
         return process(lastInterceptor)
 
+    }
+
+    private suspend fun processOnFailure(fn: SideEffect<U>, msg: String? = null, vararg allowedStatuses: JobStatus): JobState<U>{
+        if(allowedStatuses.contains(status)){
+            msg?.let { log.info { "Running on failure: ${it}" } }
+            fn(value!!)
+        }
+
+        return this
     }
 
     private suspend fun process(lastInterceptor: WorkerInterceptor): JobState<U>{

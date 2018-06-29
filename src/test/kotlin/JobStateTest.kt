@@ -261,7 +261,7 @@ class JobStateTest {
 
     @Test
     fun testNullaryEndIsSuccess() {
-        val res = jobOne.end()
+        val res = runBlocking { jobOne.end() }
         assertEquals(JobStatus.Success, res)
     }
 
@@ -404,5 +404,194 @@ class JobStateTest {
         }
 
         assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testBranchIfSuccess(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { true }
+                        .jobStatus()
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testBranchIfFailure(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { false }
+                        .jobStatus()
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testBranchIfSuccesHalt(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { true }
+                        .end()
+                }
+                .execute { false }      // This shouldn't be run as the branch returned with success
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testBranchIfFailureHalt(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(true){
+                    it
+                        .execute { false }
+                        .end()
+                }
+                .execute { true }      // This shouldn't be run as the branch returned with failure
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testSeveralBranches(){
+        val state = runBlocking {
+            jobOne
+                .branchIf(false){ // This branch is never run
+                    it
+                        .execute { false }
+                        .end()
+                }
+                .branchIf(true){
+                    it
+                        .execute { true }
+                        .end()
+                }
+                .execute { false }      // This shouldn't be run as the branch returned with success
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testPredicateBranch(){
+        val state = runBlocking {
+            jobOne
+                .map { "test" }
+                .branchIf({ it == "test"} ){ // This branch is never run
+                    it
+                        .execute { true }
+                        .end()
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testOnTransientFailureWithTransientFailure(){
+        var hasRunTransientFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .execute { false }
+                .onTransientFailure { hasRunTransientFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+        assertTrue(hasRunTransientFailure)
+    }
+
+    @Test
+    fun testOnTransientFailureWithPermanentFailure(){
+        var hasRunTransientFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { false }
+                .onTransientFailure { hasRunTransientFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+        assertFalse(hasRunTransientFailure)
+    }
+
+    @Test
+    fun testOnTransientFailureWithIncomplete(){
+        var hasRunTransientFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .onTransientFailure { hasRunTransientFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+        assertFalse(hasRunTransientFailure)
+    }
+
+    @Test
+    fun testOnPermanentFailureWithTransientFailure(){
+        var hasRunPermanentFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .execute { false }
+                .onPermanentFailure { hasRunPermanentFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+        assertFalse(hasRunPermanentFailure)
+    }
+
+    @Test
+    fun testOnPermanentFailureWithPermanentFailure(){
+        var hasRunPermanentFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { false }
+                .onPermanentFailure { hasRunPermanentFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+        assertTrue(hasRunPermanentFailure)
+    }
+
+    @Test
+    fun testOnPermanentFailureWithIncomplete(){
+        var hasRunPermanentFailure = false
+
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .onPermanentFailure { hasRunPermanentFailure = true }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+        assertFalse(hasRunPermanentFailure)
     }
 }
