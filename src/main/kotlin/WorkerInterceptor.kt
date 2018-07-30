@@ -2,14 +2,14 @@ package franz
 
 open class WorkerInterceptor(
     var next: WorkerInterceptor? = null,
-    val onIntercept: (suspend (WorkerInterceptor) -> JobStatus) = {
-        it.executeNext()
+    val onIntercept: (suspend (interceptor: WorkerInterceptor, default: JobStatus) -> JobStatus) = { interceptor, default ->
+        interceptor.executeNext(default)
     }
 ){
-    suspend fun executeNext(): JobStatus {
+    suspend fun executeNext(default: JobStatus): JobStatus {
         val nextInterceptor = next
         if(nextInterceptor != null){
-            return nextInterceptor.onIntercept(nextInterceptor)
+            return nextInterceptor.onIntercept(nextInterceptor, default)
         }else{
             return JobStatus.Success
         }

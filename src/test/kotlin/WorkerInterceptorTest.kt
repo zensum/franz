@@ -75,7 +75,7 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor{it.executeNext()})
+                .install(WorkerInterceptor{i, d -> i.executeNext(d)})
                 .handlePiped {
                     it
                         .sideEffect {  }
@@ -95,8 +95,8 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor{it.executeNext()})
-                .install(WorkerInterceptor{it.executeNext()})
+                .install(WorkerInterceptor{i, d -> i.executeNext(d)})
+                .install(WorkerInterceptor{i, d -> i.executeNext(d)})
                 .handlePiped {
                     it
                         .sideEffect {  }
@@ -116,7 +116,7 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor{it.executeNext()})
+                .install(WorkerInterceptor{i, d -> i.executeNext(d)})
                 .handlePiped {
                     it
                         .sideEffect { setFlagged = true }
@@ -136,7 +136,7 @@ class WorkerInterceptorTest {
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
                 .install(WorkerInterceptor()) /* Explicitly don't runt it.executeNext() */
-                .install(WorkerInterceptor{it.executeNext()})
+                .install(WorkerInterceptor{i, d -> i.executeNext(d)})
                 .handlePiped {
                     it
                         .sideEffect { setFlagged = true }
@@ -175,9 +175,9 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor {
+                .install(WorkerInterceptor {i, default ->
                     try{
-                        it.executeNext()
+                        i.executeNext(default)
                     }catch (e: DummyException){
                         exceptionEncountered = true
                     }
@@ -203,7 +203,7 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor {
+                .install(WorkerInterceptor {_, _ ->
                     count ++
                     JobStatus.Success
                 })
@@ -236,7 +236,7 @@ class WorkerInterceptorTest {
                     createTestMessage(),
                     createTestMessage()
                 )).createFactory())
-                .install(WorkerInterceptor {
+                .install(WorkerInterceptor {_, _ ->
                     count ++
                     JobStatus.Success
                 })
@@ -261,8 +261,8 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(mockConsumerActor.createFactory())
-                .install(WorkerInterceptor {
-                    it.executeNext()
+                .install(WorkerInterceptor {i, d ->
+                    i.executeNext(d)
                     JobStatus.Success
                 })
                 .handlePiped {
@@ -288,8 +288,8 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(mockConsumerActor.createFactory())
-                .install(WorkerInterceptor {
-                    it.executeNext()
+                .install(WorkerInterceptor {i, d ->
+                    i.executeNext(d)
                     JobStatus.Success
                 })
                 .handlePiped {
@@ -316,12 +316,12 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(mockConsumerActor.createFactory())
-                .install(WorkerInterceptor {
-                    it.executeNext()
+                .install(WorkerInterceptor {i, d ->
+                    i.executeNext(d)
                     JobStatus.PermanentFailure
                 })
-                .install(WorkerInterceptor {
-                    it.executeNext()
+                .install(WorkerInterceptor {i, d ->
+                    i.executeNext(d)
                     JobStatus.TransientFailure
                 })
                 .handlePiped {
@@ -349,9 +349,9 @@ class WorkerInterceptorTest {
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
                 .setEngine(MockConsumerActor.ofString(listOf(createTestMessage())).createFactory())
-                .install(WorkerInterceptor {
+                .install(WorkerInterceptor {i, d ->
                     count ++
-                    it.executeNext()
+                    i.executeNext(d)
                 })
                 .handlePiped {
                     it

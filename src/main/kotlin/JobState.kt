@@ -161,7 +161,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     }
 
     private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U> {
-        val lastInterceptor = WorkerInterceptor {
+        val lastInterceptor = WorkerInterceptor {_, _ ->
             if(inProgress()) {
                 val result = fn(value!!)
                 if(FAILED_JOB_STATUSES.contains(result)){
@@ -173,11 +173,11 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             }
         }
 
-        return process(lastInterceptor)
+        return process(lastInterceptor, JobStatus.TransientFailure)
     }
 
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
-        val lastInterceptor = WorkerInterceptor {
+        val lastInterceptor = WorkerInterceptor {_, _ ->
             if (inProgress() && !predicate(value!!)) {
                 msg?.let { log.info("Failed on: $it") }
                 newStatus
@@ -186,7 +186,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             }
         }
 
-        return process(lastInterceptor)
+        return process(lastInterceptor, newStatus)
 
     }
 
@@ -199,7 +199,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         return this
     }
 
-    private suspend fun process(lastInterceptor: WorkerInterceptor): JobState<U>{
+    private suspend fun process(lastInterceptor: WorkerInterceptor, defaultStatus: JobStatus): JobState<U>{
         val firstInterceptor = when(interceptors.size){
             0 -> lastInterceptor
             else -> {
@@ -208,7 +208,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             }
         }
 
-        val endValue = firstInterceptor.onIntercept(firstInterceptor)
+        val endValue = firstInterceptor.onIntercept(firstInterceptor, defaultStatus)
         this.status = endValue
 
         return this
