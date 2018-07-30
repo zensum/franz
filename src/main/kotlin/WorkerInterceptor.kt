@@ -1,6 +1,6 @@
 package franz
 
-class WorkerInterceptor(
+open class WorkerInterceptor(
     var next: WorkerInterceptor? = null,
     val onIntercept: (suspend (WorkerInterceptor) -> JobStatus) = {
         it.executeNext()
