@@ -1,4 +1,4 @@
-package frans.producer.mock
+package franz.producer.mock
 
 import franz.producer.ProduceResult
 import franz.producer.ProduceResultF
