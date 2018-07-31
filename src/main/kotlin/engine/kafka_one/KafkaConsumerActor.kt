@@ -1,4 +1,5 @@
 package franz.engine.kafka_one
+import franz.JobStateException
 import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
@@ -153,6 +154,9 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
 
     private inline fun tryJobStatus(fn: () -> JobStatus) = try {
         fn()
+    } catch(ex: JobStateException){
+        logger.error("Job threw an exception", ex)
+        ex.result
     } catch (ex: Exception) {
         logger.error("Job threw an exception", ex)
         JobStatus.TransientFailure

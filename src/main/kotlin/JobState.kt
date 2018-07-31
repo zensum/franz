@@ -12,6 +12,12 @@ fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
 private val FAILED_JOB_STATUSES = listOf(WorkerResult.Failure, WorkerResult.Retry)
 
+class JobStateException(
+    val result: JobStatus,
+    message: String,
+    innerException: Throwable
+):Exception(message, innerException)
+
 class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerInterceptor> = emptyList()) {
     var status: JobStatus = JobStatus.Incomplete
 
@@ -142,9 +148,9 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
                 false -> null
             }
             return JobState(transFormedVal, this.interceptors).also { it.status = this.status }
-        }catch(e: Exception) {
+        }catch(e: Throwable) {
             msg?.let { log.info { "Failed on: $it" } }
-            return JobState<R>(null, interceptors).also { it.status = newStatus }
+            throw JobStateException(result = newStatus, message = "Failed with map", innerException = e)
         }
     }
 
