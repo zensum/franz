@@ -5,6 +5,7 @@ import mu.KotlinLogging
 typealias Predicate<U> = suspend (U) -> Boolean
 typealias WorkerFunction<U> = suspend (JobState<U>) -> JobStatus
 typealias SideEffect<U> = suspend (U) -> Unit
+typealias Transform<U, R> = suspend (U) -> R
 
 val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
@@ -101,15 +102,15 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Transforms the type of the job by using the supplied transform function.
      * If an unhandled exception is encountered, sets the JobState to TransientFailure.
      */
-    inline fun <R: Any> map(transform: (U) -> R): JobState<R>  = processMap(JobStatus.TransientFailure, transform)
-    inline fun <R: Any> map(msg: String, transform: (U) -> R): JobState<R>  = processMap(JobStatus.TransientFailure, transform, msg)
+    suspend fun <R: Any> map(transform: Transform<U, R>): JobState<R>  = processMap(JobStatus.TransientFailure, transform)
+    suspend fun <R: Any> map(msg: String, transform: Transform<U, R>): JobState<R>  = processMap(JobStatus.TransientFailure, transform, msg)
 
     /**
      * Transforms the type of the job by using the supplied transform function.
      * If an unhandled exception is encountered, sets the JobState to PermanentFailure.
      */
-    inline fun <R: Any> mapRequire(transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform)
-    inline fun <R: Any> mapRequire(msg: String, transform: (U) -> R): JobState<R> = processMap(JobStatus.PermanentFailure, transform, msg)
+    suspend fun <R: Any> mapRequire(transform: Transform<U, R>): JobState<R> = processMap(JobStatus.PermanentFailure, transform)
+    suspend fun <R: Any> mapRequire(msg: String, transform: Transform<U, R>): JobState<R> = processMap(JobStatus.PermanentFailure, transform, msg)
 
 
     /**
@@ -140,8 +141,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         return status
     }
 
-    @PublishedApi
-    internal inline fun <R: Any> processMap(newStatus: JobStatus, transform: (U) -> R, msg: String? = null): JobState<R>{
+    private suspend fun <R: Any> processMap(newStatus: JobStatus, transform: Transform<U, R>, msg: String? = null): JobState<R>{
         try{
             val transFormedVal: R? = when (inProgress()) {
                 true -> transform(value!!)
@@ -152,6 +152,20 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
             msg?.let { log.info { "Failed on: $it" } }
             throw JobStateException(result = newStatus, message = "Failed with map", innerException = e)
         }
+
+        /*
+        val lastInterceptor = WorkerInterceptor {_, _ ->
+            try{
+                val transFormedVal: R? = when (inProgress()) {
+                    true -> transform(value!!)
+                    false -> null
+                }
+                return JobState(transFormedVal, this.interceptors).also { it.status = this.status }
+            }catch(e: Throwable) {
+                msg?.let { log.info { "Failed on: $it" } }
+                throw JobStateException(result = newStatus, message = "Failed with map", innerException = e)
+            }
+        }*/
     }
 
     private suspend fun processBranch(predicate: suspend(U) -> Boolean, fn: suspend (JobState<U>) -> JobStatus, msg: String? = null): JobState<U>{

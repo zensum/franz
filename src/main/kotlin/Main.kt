@@ -6,7 +6,7 @@ import java.util.*
 
 val logger = KotlinLogging.logger("test-logger")
 
-fun main(args: Array<String>) {
+suspend fun main(args: Array<String>) {
     val rnd = Random()
     WorkerBuilder.ofString
         .subscribedTo("my-topic")

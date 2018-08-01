@@ -11,11 +11,11 @@ private val valueDeserKey = "value.deserializer"
 private typealias RunningFunction<T, U> = suspend JobDSL<T, U>.() -> JobStatus
 private typealias PipedWorkerFunction<T, U> = suspend (JobState<Message<T, U>>) -> JobStatus
 
-private fun <T, U> runningWorker(fn: RunningFunction<T, U>): WorkerFunction<T, U> = {
+private suspend fun <T, U> runningWorker(fn: RunningFunction<T, U>): WorkerFunction<T, U> = {
     fn(JobDSL(it))
 }
 
-private fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, interceptors: List<WorkerInterceptor>): WorkerFunction<T, U> = {
+private suspend fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, interceptors: List<WorkerInterceptor>): WorkerFunction<T, U> = {
     fn(JobState(it, interceptors))
 }
 
@@ -26,10 +26,10 @@ data class WorkerBuilder<T> private constructor(
     private val engine: ConsumerActorFactory = KafkaConsumerActorFactory,
     private val interceptors: List<WorkerInterceptor> = emptyList()
 ){
-    fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
+    suspend fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
     @Deprecated("Use piped or handler instead")
-    fun running(fn: RunningFunction<String, T>) = handler(runningWorker(fn))
-    fun handlePiped(fn: PipedWorkerFunction<String, T>) = handler(pipedWorker(fn, interceptors))
+    suspend fun running(fn: RunningFunction<String, T>) = handler(runningWorker(fn))
+    suspend fun handlePiped(fn: PipedWorkerFunction<String, T>) = handler(pipedWorker(fn, interceptors))
     fun subscribedTo(vararg newTopics: String) = copy(topics = topics + newTopics)
     fun subscribedTo(topics: Collection<String>): WorkerBuilder<T> = merge(this, topics.toTypedArray())
     fun groupId(id: String) = option("group.id", id)

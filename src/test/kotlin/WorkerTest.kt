@@ -3,6 +3,7 @@ import franz.Message
 import franz.WorkerBuilder
 import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
+import kotlinx.coroutines.experimental.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 
@@ -15,7 +16,8 @@ class WorkerTest{
 
     @Test
     fun testEmptyWorkFlow(){
-        val mockedActor = MockConsumerActor.ofString()
+        runBlocking {
+            val mockedActor = MockConsumerActor.ofString()
             WorkerBuilder.ofString
                 .subscribedTo("TOPIC")
                 .groupId("TOPIC")
@@ -25,84 +27,91 @@ class WorkerTest{
                         .end()
 
                 }
-            .start()
+                .start()
 
-        assertEquals(0, mockedActor.results().size)
+            assertEquals(0, mockedActor.results().size)
+        }
     }
 
     @Test
     fun testSingleMessageMapped(){
-        val mockedActor = MockConsumerActor.ofString(
-            listOf(getTestMessage("dummy"))
-        )
+        runBlocking {
+            val mockedActor = MockConsumerActor.ofString(
+                listOf(getTestMessage("dummy"))
+            )
 
-        WorkerBuilder.ofString
-            .subscribedTo("TOPIC")
-            .groupId("TOPIC")
-            .setEngine(mockedActor.createFactory())
-            .handlePiped {
-                it
-                    .map { it.value() }
-                    .require { it == "dummy" }
-                    .end()
+            WorkerBuilder.ofString
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockedActor.createFactory())
+                .handlePiped {
+                    it
+                        .map { it.value() }
+                        .require { it == "dummy" }
+                        .end()
 
-            }
-            .start()
+                }
+                .start()
 
-        assertEquals(1, mockedActor.results().size)
-        assertEquals(JobStatus.Success, mockedActor.results().first().status)
+            assertEquals(1, mockedActor.results().size)
+            assertEquals(JobStatus.Success, mockedActor.results().first().status)
+        }
     }
 
     @Test
     fun testMultipleMessageFailed(){
-        val mockedActor = MockConsumerActor.ofString(
-            listOf(
-                getTestMessage("dummy"),
-                getTestMessage("dummy"),
-                getTestMessage("dummy")
+        runBlocking {
+            val mockedActor = MockConsumerActor.ofString(
+                listOf(
+                    getTestMessage("dummy"),
+                    getTestMessage("dummy"),
+                    getTestMessage("dummy")
+                )
             )
-        )
 
-        WorkerBuilder.ofString
-            .subscribedTo("TOPIC")
-            .groupId("TOPIC")
-            .setEngine(mockedActor.createFactory())
-            .handlePiped {
-                it
-                    .map { it.value() }
-                    .require { it == "not this" }
-                    .end()
+            WorkerBuilder.ofString
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockedActor.createFactory())
+                .handlePiped {
+                    it
+                        .map { it.value() }
+                        .require { it == "not this" }
+                        .end()
 
-            }
-            .start()
+                }
+                .start()
 
-        assertEquals(3, mockedActor.results().size)
-        assertEquals(0, mockedActor.results().filter { it.status == JobStatus.Success }.size)
+            assertEquals(3, mockedActor.results().size)
+            assertEquals(0, mockedActor.results().filter { it.status == JobStatus.Success }.size)
+        }
     }
 
     @Test
     fun testMultipleAllJobStates(){
-        val mockedActor = MockConsumerActor.ofString(
-            listOf(
-                getTestMessage("dummy")
+        runBlocking {
+            val mockedActor = MockConsumerActor.ofString(
+                listOf(
+                    getTestMessage("dummy")
+                )
             )
-        )
 
-        WorkerBuilder.ofString
-            .subscribedTo("TOPIC")
-            .groupId("TOPIC")
-            .setEngine(mockedActor.createFactory())
-            .handlePiped {
-                it
-                    .map { it.value() }
-                    .require { true }
-                    .execute { true }
-                    .sideEffect {  }
-                    .end()
+            WorkerBuilder.ofString
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockedActor.createFactory())
+                .handlePiped {
+                    it
+                        .map { it.value() }
+                        .require { true }
+                        .execute { true }
+                        .sideEffect { }
+                        .end()
 
-            }
-            .start()
+                }
+                .start()
 
-        assertEquals(JobStatus.Success, mockedActor.results().first().status)
+            assertEquals(JobStatus.Success, mockedActor.results().first().status)
+        }
     }
 }

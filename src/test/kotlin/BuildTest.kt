@@ -11,7 +11,7 @@ class BuildTest{
     private fun nonSuspendingFunction(): Boolean = true
 
     @Test
-    fun testMapWithSuspendFunctionWillCompile() {
+    suspend fun testMapWithSuspendFunctionWillCompile() {
         WorkerBuilder.ofByteArray
             .subscribedTo("TOPIC")
             .groupId("TOPIC")
@@ -28,7 +28,7 @@ class BuildTest{
     }
 
     @Test
-    fun testMapWithNonSuspendFunctionWillCompile() {
+    suspend fun testMapWithNonSuspendFunctionWillCompile() {
         WorkerBuilder.ofByteArray
             .subscribedTo("TOPIC")
             .groupId("TOPIC")
