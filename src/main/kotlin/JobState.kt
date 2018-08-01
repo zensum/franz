@@ -153,7 +153,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
                 this.status
             }catch(e: Throwable) {
                 msg?.let { log.info { "Failed on: $it" } }
-                throw JobStateException(result = newStatus, message = "Failed with map", innerException = e)
+                throw JobStateException(result = newStatus, message = msg?:"Failed on: $msg", innerException = e)
             }
         }
 
