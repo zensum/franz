@@ -1,6 +1,7 @@
 package franz
 
 import kotlinx.coroutines.experimental.runBlocking
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import kotlin.test.*
 
@@ -120,7 +121,7 @@ class JobStateTest {
             job
                 .require { true }
                 .map { it.value() }
-                .map(Integer::parseInt)
+                .map { Integer.parseInt(it) }
                 .require { it == 1 }
         }
 
@@ -136,7 +137,7 @@ class JobStateTest {
                 .require { true }
                 .require { false }
                 .map { it.value() }
-                .map(Integer::parseInt)
+                .map { Integer.parseInt(it) }
         }
 
         assertNull(state.value)
@@ -146,12 +147,12 @@ class JobStateTest {
     fun testMapThrows() {
         val job = jobOne
 
-        val state = runBlocking {
-            job
-                .map { throw Exception("") }
+        assertThrows(JobStateException::class.java) {
+            runBlocking {
+                job
+                    .map { throw DummyException() }
+            }
         }
-
-        assertEquals(JobStatus.TransientFailure, state.status)
     }
 
     @Test
@@ -161,7 +162,7 @@ class JobStateTest {
             job
                 .require { true }
                 .mapRequire { it.value() }
-                .mapRequire(Integer::parseInt)
+                .map { Integer.parseInt(it) }
                 .require { it == 1 }
         }
 
@@ -177,7 +178,7 @@ class JobStateTest {
                 .require { true }
                 .require { false }
                 .mapRequire { it.value() }
-                .mapRequire(Integer::parseInt)
+                .mapRequire { Integer.parseInt(it) }
         }
 
         assertNull(state.value)
@@ -187,12 +188,12 @@ class JobStateTest {
     fun testMapRequireThrows() {
         val job = jobOne
 
-        val state = runBlocking {
-            job
-                .mapRequire { throw Exception("") }
+        assertThrows(JobStateException::class.java) {
+            runBlocking {
+                job
+                    .mapRequire { throw DummyException() }
+            }
         }
-
-        assertEquals(JobStatus.PermanentFailure, state.status)
     }
 
     @Test
@@ -232,7 +233,7 @@ class JobStateTest {
             job
                 .advanceIf { it.value().isNotEmpty() }
                 .map { it.value() }
-                .map(Integer::parseInt)
+                .map { Integer.parseInt(it) }
                 .map { it * 2 }
                 .map { it + 4 }
                 .require { it > 1 }
@@ -249,7 +250,7 @@ class JobStateTest {
             job
                 .map { it.value() }
                 .advanceIf { it.isNotEmpty() }
-                .map(Integer::parseInt)
+                .map { Integer.parseInt(it) }
                 .map { it * 2 }
                 .require { it < 0 } // This should fail and give JobStatus.PermanentFailure
                 .map { it + 4 }

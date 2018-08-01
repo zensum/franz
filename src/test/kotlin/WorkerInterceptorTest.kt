@@ -218,10 +218,9 @@ class WorkerInterceptorTest {
                     .groupId("TOPIC")
                     .setEngine(engine.createFactory())
                     .install(WorkerInterceptor { i, default ->
-                        println("Im running")
                         try {
                             i.executeNext(default)
-                        } catch (e: DummyException) {
+                        } catch (e: Exception) {
                             exceptionEncountered = true
                         }
                         JobStatus.PermanentFailure
@@ -234,10 +233,6 @@ class WorkerInterceptorTest {
                     }
 
             worker.start()
-
-            engine.results().forEach {
-                println("${it.status}, ${it.throwable}, ${it.throwable?.cause}")
-            }
             assertTrue(exceptionEncountered)
         }
     }
@@ -423,9 +418,7 @@ class WorkerInterceptorTest {
                     }
 
             worker.start()
-
-            // Map does not go trough JobState.process and therefor don't have the interceptors run over them. So in these four steps, only execute and require triggers interceptors.
-            assertEquals(3, count)
+            assertEquals(4, count)
         }
     }
 }

@@ -142,30 +142,23 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     }
 
     private suspend fun <R: Any> processMap(newStatus: JobStatus, transform: Transform<U, R>, msg: String? = null): JobState<R>{
-        try{
-            val transFormedVal: R? = when (inProgress()) {
-                true -> transform(value!!)
-                false -> null
-            }
-            return JobState(transFormedVal, this.interceptors).also { it.status = this.status }
-        }catch(e: Throwable) {
-            msg?.let { log.info { "Failed on: $it" } }
-            throw JobStateException(result = newStatus, message = "Failed with map", innerException = e)
-        }
 
-        /*
+        var tranformedValue: R? = null
         val lastInterceptor = WorkerInterceptor {_, _ ->
             try{
-                val transFormedVal: R? = when (inProgress()) {
+                tranformedValue = when (inProgress()) {
                     true -> transform(value!!)
                     false -> null
                 }
-                return JobState(transFormedVal, this.interceptors).also { it.status = this.status }
+                this.status
             }catch(e: Throwable) {
                 msg?.let { log.info { "Failed on: $it" } }
                 throw JobStateException(result = newStatus, message = "Failed with map", innerException = e)
             }
-        }*/
+        }
+
+        val status = processToStatus(lastInterceptor, newStatus)
+        return JobState(tranformedValue, interceptors).also { it.status = status }
     }
 
     private suspend fun processBranch(predicate: suspend(U) -> Boolean, fn: suspend (JobState<U>) -> JobStatus, msg: String? = null): JobState<U>{
@@ -232,6 +225,18 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         this.status = endValue
 
         return this
+    }
+
+    private suspend fun processToStatus(lastInterceptor: WorkerInterceptor, defaultStatus: JobStatus): JobStatus{
+        val firstInterceptor = when(interceptors.size){
+            0 -> lastInterceptor
+            else -> {
+                interceptors.last().next = lastInterceptor
+                interceptors.first()
+            }
+        }
+
+        return firstInterceptor.onIntercept(firstInterceptor, defaultStatus)
     }
 
     private fun WorkerResult.toJobStatus() =
