@@ -167,13 +167,14 @@ class JobStateTest {
         }
 
         assertEquals(1, status.value)
+        assertEquals(JobStatus.Incomplete, status.status)
     }
 
     @Test
     fun testMapRequireToNull() {
         val job = jobOne
 
-        val state = runBlocking {
+        val status = runBlocking {
             job
                 .require { true }
                 .require { false }
@@ -181,11 +182,12 @@ class JobStateTest {
                 .mapRequire { Integer.parseInt(it) }
         }
 
-        assertNull(state.value)
+        assertNull(status.value)
+        assertEquals(JobStatus.PermanentFailure, status.status)
     }
 
     @Test
-    fun testMapRequireThrows() {
+    fun testMapRequireThrowsIsThrown() {
         val job = jobOne
 
         assertThrows(JobStateException::class.java) {
@@ -194,6 +196,25 @@ class JobStateTest {
                     .mapRequire { throw DummyException() }
             }
         }
+    }
+
+
+    @Test
+    fun testMapRequireThrowsToPermanentFailure() {
+        val job = jobOne
+
+        var ex: JobStateException? = null
+        try{
+            runBlocking {
+                job
+                    .mapRequire { throw DummyException() }
+            }
+        }catch (e: JobStateException){
+            ex = e
+        }
+
+        assertNotNull(ex)
+        assertEquals(JobStatus.PermanentFailure, ex?.result)
     }
 
     @Test

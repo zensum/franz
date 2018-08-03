@@ -1,5 +1,6 @@
 package franz.engine.mock
 
+import franz.JobStateException
 import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
@@ -30,17 +31,20 @@ abstract class MockConsumerActorBase<T, U> : ConsumerActor<T, U> {
     }
 
     override fun createWorker(fn: WorkerFunction<T, U>) {
-                worker(this, fn)
+        worker(this, fn)
+    }
+
+    private inline fun tryJobStatus(fn: () -> JobStatus) = try {
+        fn()
+    } catch(ex: JobStateException){
+        ex.result
+    } catch (ex: Exception) {
+        JobStatus.TransientFailure
     }
 
     private fun worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>) {
         consumer.subscribe {
-            try {
-                val result = runBlocking { fn(it) }
-                setJobStatus(it, result)
-            } catch (e: Throwable) {
-                setException(e)
-            }
+            setJobStatus(it, tryJobStatus { runBlocking{fn(it) } })
         }
     }
 
