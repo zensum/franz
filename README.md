@@ -2,7 +2,11 @@
 
 Franz is a library for building Kafka-based workers in Kotlin.
 The purpose is the get messages from the message queue in a stream-like fashion and work with them step-by-step with the
-use of worker functions where the end result for a message is either successfull, a permanent failure or a transient failure.
+use of worker functions where the end result for a message is either successful, a permanent failure or a transient failure.
+Successful messages are what they sound like. The message is handled. Permanent failure messages are regarded as forever failed.
+They failed in some fashion that is not recoverable and therefore nothing can be gained by trying it again. Transient failures are
+retried by being fetched again the next time messages are fetched from the message queue and then run trough the the piped worker again.
+
 
 ```kotlin
 import franz.WorkerBuilder
@@ -14,7 +18,7 @@ fun main(args: Array<String>) {
             .groupId("test")
             .handlePiped {
                 it
-                    .sideEffect { println("I got a message with key ${it.key} containing ${value}") }
+                    .sideEffect { println("I got a message with key ${it.key} containing ${it.value}") }
                     .end()
             }
             .start()
