@@ -39,6 +39,8 @@ dependencies {
 }
 ```
 
+[![](https://jitpack.io/v/zensum/franz.svg)](https://jitpack.io/#zensum/franz)
+
 ##Building worker functions
 Franz is used by creating worker steps in the form of worker functions in its piped handler.
 These are called sequentially.
@@ -71,8 +73,6 @@ Called from a JobState (after WorkerBuilder.handledPiped(fn: (JobState<Message<T
 * `.onTransientFailure((U) -> Unit)` runs this worker function only when the message's status is a transient failure. Can't change the status of the message.
 * `.onPermanentfailure((U) -> Unit)` same as onTransientFailure bit runs when the messages statis is a permanent failure.
 * `.end()` ends the worker pipe and returns the messages status as its result. Any non failed statuses returns in a success.
-
-[![](https://jitpack.io/v/zensum/franz.svg)](https://jitpack.io/#zensum/franz)
 
 ## Interceptors
 Franz supports the use of interceptor; that is, tiny pieces of code inserted before a worker function runs. They can capture the output from the workers and send its own result.
