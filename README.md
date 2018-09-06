@@ -41,7 +41,7 @@ dependencies {
 
 [![](https://jitpack.io/v/zensum/franz.svg)](https://jitpack.io/#zensum/franz)
 
-##Building worker functions
+## Building worker functions
 Franz is used by creating worker steps in the form of worker functions in its piped handler.
 These are called sequentially.
 ```
@@ -60,7 +60,7 @@ WorkerBuilder.ofByteArray
             }
 ```
 
-###Available worker functions
+### Available worker functions
 Called from a JobState (after WorkerBuilder.handledPiped(fn: (JobState<Message<T, U>>) -> JobStatus))
 * `.map(transform: transform<T,U>)` takes a transformation function, applies it to the message and sends the result down the pipe. If the function throws the message's status becomes a transient failure.
 * `.mapRequire(transform: transform<T,U>)` Same as map() but results is a permanent failure if the function throws.
@@ -78,7 +78,7 @@ Called from a JobState (after WorkerBuilder.handledPiped(fn: (JobState<Message<T
 Franz supports the use of interceptor; that is, tiny pieces of code inserted before a worker function runs. They can capture the output from the workers and send its own result.
 The standard WorkerIntercptor can be used as-is and takes a lamba expression in executes for each worker function encountered.
 Worker function lambas expects the following type `suspend (interceptor: WorkerInterceptor, default: JobStatus) -> JobStatus`
-###Example
+### Example
 ```
 WorkerBuilder.ofByteArray
             .subscribedTo("my-topic")
