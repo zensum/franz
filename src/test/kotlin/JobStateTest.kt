@@ -616,4 +616,46 @@ class JobStateTest {
         assertEquals(JobStatus.Success, state)
         assertFalse(hasRunPermanentFailure)
     }
+
+    @Test
+    fun testMapToEitherRetry(){
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .executeToEither(""){
+                    Either.retry
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testMapToEitherFailure(){
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .executeToEither(""){
+                    Either.failure
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+    }
+
+    @Test
+    fun testMapToEitherResult(){
+        val state = runBlocking {
+            jobOne
+                .require { true }
+                .executeToEither(""){
+                    Either.result(12)
+                }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
 }

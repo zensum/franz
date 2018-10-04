@@ -19,6 +19,19 @@ class JobStateException(
     innerException: Throwable
 ):Exception(message, innerException)
 
+class Either<L, R> (
+    val left: L? = null,
+    val right: R
+) {
+    fun isLeft() = left != null
+
+    companion object {
+        fun <L> result(result: L) = Either(result, WorkerResult.Success)
+        val retry = Either(null, WorkerResult.Retry)
+        val failure = Either(null, WorkerResult.Failure)
+    }
+}
+
 class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerInterceptor> = emptyList()) {
     var status: JobStatus = JobStatus.Incomplete
 
@@ -52,6 +65,10 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      */
     suspend fun executeToResult(fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn)
     suspend fun executeToResult(msg: String, fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn, msg)
+
+
+    suspend fun <R: Any> executeToEither(fn: suspend (U) -> Either<R, WorkerResult>): JobState<R> = processEither(fn)
+    suspend fun <R: Any> executeToEither(msg: String, fn: suspend (U) -> Either<R, WorkerResult>): JobState<R> = processEither(fn, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -142,7 +159,6 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     }
 
     private suspend fun <R: Any> processMap(newStatus: JobStatus, transform: Transform<U, R>, msg: String? = null): JobState<R>{
-
         var tranformedValue: R? = null
         val lastInterceptor = WorkerInterceptor {_, _ ->
             try{
@@ -187,6 +203,34 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         }
 
         return process(lastInterceptor, JobStatus.TransientFailure)
+    }
+
+    private suspend fun <R: Any> processEither(fn: suspend(U) -> Either<R, WorkerResult>, msg: String? = null): JobState<R> {
+        var eitherValue: Either<R, WorkerResult>? = null
+        val lastInterceptor = WorkerInterceptor {_, _ ->
+            if(inProgress()) {
+                try{
+                    eitherValue = fn(this.value!!)
+
+                    if (!eitherValue!!.isLeft()) {
+                        if(FAILED_JOB_STATUSES.contains(eitherValue!!.right)){
+                            msg?.let {log.info { "Failed on: $it" }}
+                        }
+                        eitherValue!!.right.toJobStatus()
+                    } else {
+                        this.status
+                    }
+                } catch (e: Throwable) {
+                    msg?.let { log.info { "Failed on: $it" } }
+                    throw JobStateException(result = JobStatus.TransientFailure, message = msg?:"Failed on: $msg", innerException = e)
+                }
+            }else{
+            this.status
+            }
+        }
+
+        val status = processToStatus(lastInterceptor, JobStatus.TransientFailure)
+        return JobState(eitherValue!!.left, interceptors).also { it.status = status }
     }
 
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
