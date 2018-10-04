@@ -19,16 +19,16 @@ class JobStateException(
     innerException: Throwable
 ):Exception(message, innerException)
 
-class Either<out L, R> (
+class Either<out L> (
     val left: L? = null,
-    val right: R
+    val right: WorkerResult
 ) {
     fun isLeft() = left != null
 
     companion object {
         fun <L> result(result: L) = Either(result, WorkerResult.Success)
-        val retry = Either<Any, WorkerResult>(null, WorkerResult.Retry)
-        val failure = Either<Any, WorkerResult>(null, WorkerResult.Failure)
+        val retry = Either(null, WorkerResult.Retry)
+        val failure = Either(null, WorkerResult.Failure)
     }
 }
 
@@ -67,8 +67,8 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     suspend fun executeToResult(msg: String, fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn, msg)
 
 
-    suspend fun <R: Any> executeToEither(fn: suspend (U) -> Either<R, WorkerResult>): JobState<R> = processEither(fn)
-    suspend fun <R: Any> executeToEither(msg: String, fn: suspend (U) -> Either<R, WorkerResult>): JobState<R> = processEither(fn, msg)
+    suspend fun <R: Any> executeToEither(fn: suspend (U) -> Either<R>): JobState<R> = processEither(fn)
+    suspend fun <R: Any> executeToEither(msg: String, fn: suspend (U) -> Either<R>): JobState<R> = processEither(fn, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -205,8 +205,8 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         return process(lastInterceptor, JobStatus.TransientFailure)
     }
 
-    private suspend fun <R: Any> processEither(fn: suspend(U) -> Either<R, WorkerResult>, msg: String? = null): JobState<R> {
-        var eitherValue: Either<R, WorkerResult>? = null
+    private suspend fun <R: Any> processEither(fn: suspend(U) -> Either<R>, msg: String? = null): JobState<R> {
+        var eitherValue: Either<R>? = null
         val lastInterceptor = WorkerInterceptor {_, _ ->
             if(inProgress()) {
                 try{

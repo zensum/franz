@@ -192,12 +192,12 @@ class WorkerTest{
                         .map { it.value() }
                         .executeToEither{
                             if(true) {
-                                Either.result("test")
+                                Either.result(100)
                             }else{
                                 Either.retry
                             }
                         }
-                        .require { it == "test" }   // This should not matter as the earlier worker ended with retry
+                        .require { it == 100 }   // This should not matter as the earlier worker ended with retry
                         .end()
 
                 }
