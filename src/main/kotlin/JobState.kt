@@ -19,7 +19,7 @@ class JobStateException(
     innerException: Throwable
 ):Exception(message, innerException)
 
-class Either<L, R> (
+class Either<out L, R> (
     val left: L? = null,
     val right: R
 ) {

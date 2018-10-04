@@ -1,3 +1,4 @@
+import franz.Either
 import franz.JobStatus
 import franz.Message
 import franz.WorkerBuilder
@@ -106,6 +107,97 @@ class WorkerTest{
                         .require { true }
                         .execute { true }
                         .sideEffect { }
+                        .end()
+
+                }
+                .start()
+
+            assertEquals(JobStatus.Success, mockedActor.results().first().status)
+        }
+    }
+
+    @Test
+    fun testExecuteToEitherResult(){
+        runBlocking {
+            val mockedActor = MockConsumerActor.ofString(
+                listOf(
+                    getTestMessage("dummy")
+                )
+            )
+
+            WorkerBuilder.ofString
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockedActor.createFactory())
+                .handlePiped {
+                    it
+                        .map { it.value() }
+                        .executeToEither{
+                            Either.result("test")
+                        }
+                        .require { it == "test" }
+                        .end()
+
+                }
+                .start()
+
+            assertEquals(JobStatus.Success, mockedActor.results().first().status)
+        }
+    }
+
+    @Test
+    fun testExecuteToEitherRetry(){
+        runBlocking {
+            val mockedActor = MockConsumerActor.ofString(
+                listOf(
+                    getTestMessage("dummy")
+                )
+            )
+
+            WorkerBuilder.ofString
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockedActor.createFactory())
+                .handlePiped {
+                    it
+                        .map { it.value() }
+                        .executeToEither{
+                            Either.retry
+                        }
+                        .require { it == "test" }   // This should not matter as the earlier worker ended with retry
+                        .end()
+
+                }
+                .start()
+
+            assertEquals(JobStatus.TransientFailure, mockedActor.results().first().status)
+        }
+    }
+
+    @Test
+    fun testExecuteToEither(){
+        runBlocking {
+            val mockedActor = MockConsumerActor.ofString(
+                listOf(
+                    getTestMessage("dummy")
+                )
+            )
+
+            WorkerBuilder.ofString
+                .subscribedTo("TOPIC")
+                .groupId("TOPIC")
+                .setEngine(mockedActor.createFactory())
+                .handlePiped {
+                    it
+                        .map { it.value() }
+                        .executeToEither{
+                            if(true) {
+                                Either.result("test")
+                            }else{
+                                Either.retry
+                            }
+                        }
+                        .require { it == "test" }   // This should not matter as the earlier worker ended with retry
                         .end()
 
                 }
