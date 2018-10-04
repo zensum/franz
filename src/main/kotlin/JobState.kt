@@ -27,8 +27,8 @@ class Either<L, R> (
 
     companion object {
         fun <L> result(result: L) = Either(result, WorkerResult.Success)
-        val retry = Either(null, WorkerResult.Retry)
-        val failure = Either(null, WorkerResult.Failure)
+        val retry = Either<Any, WorkerResult>(null, WorkerResult.Retry)
+        val failure = Either<Any, WorkerResult>(null, WorkerResult.Failure)
     }
 }
 
