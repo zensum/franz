@@ -71,6 +71,7 @@ Called from a JobState (after WorkerBuilder.handledPiped(fn: (JobState<Message<T
 * `.execute(predicate: Predicate<U>)` runs a predicate function of the message. If the result is false the message's status becomes a transient failure.
 * `.require(predicate: Predicate<U>)` same and execute but becomes a permanent failure 
 * `.executeToResult(fn: suspend (U) -> WorkerResult)` takes a worker function returning a `WorkerResult` enum value and applies it to the message. The message status afterwards depends on the result. Useful when the worker function can either e successful, want to retry the message or fail the message.
+* `.executeToEither(fn: suspend (U) -> WorkerResult)` Combination of `map` and `excuteToResult` worker function. Returns an `Either` object containing either a mapped value or a `WorkerResult` enum value. Has helper functions in `Either` class for instanciation.
 * `.advanceIf(predicate: Predicate<U>)` Only continues down the pipe if the predicate results in true. Is otherwise considered a success.
 * `.branchIf(predicate: Predicate<U>)` Creates a new piped worker branch if the predicate is true
 * `.sideEffect(fn: (U) -> Unit)` applies the worker function on the message but does not care about the result
