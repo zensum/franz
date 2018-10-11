@@ -11,8 +11,6 @@ val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
 fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value)
 
-private val FAILED_JOB_STATUSES = listOf(WorkerResult.Failure, WorkerResult.Retry)
-
 class JobStateException(
     val result: JobStatus,
     message: String,
@@ -50,12 +48,8 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Use when an operation can result in either success, permanent failure or transient failure. This is quite common
      * if an external resource is queried and the response may be successfully or trigger either a permanent, transient failure.
      */
-    suspend fun executeToResult(fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn)
-    suspend fun executeToResult(msg: String, fn: suspend (U) -> WorkerResult) = processWorkerFunction(fn, msg)
-
-
-    suspend fun <R: Any> executeToEither(fn: suspend (U) -> Either<R>): JobState<R> = processEither(fn)
-    suspend fun <R: Any> executeToEither(msg: String, fn: suspend (U) -> Either<R>): JobState<R> = processEither(fn, msg)
+    suspend fun <R: Any> executeToResult(fn: suspend (U) -> WorkerResult<R>) = processToWorkerResult(fn)
+    suspend fun <R: Any> executeToResult(msg: String, fn: suspend (U) -> WorkerResult<R>) = processToWorkerResult(fn, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -201,7 +195,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
                 try{
                     eitherValue = fn(this.value!!)
 
-                    if(FAILED_JOB_STATUSES.contains(eitherValue!!.status)){
+                    if(eitherValue!!.status != WorkerResultStatus.Success){
                         msg?.let {log.info { "Failed on: $it" }}
                     }
                     eitherValue!!.toJobStatus()
@@ -216,7 +210,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         }
 
         val status = processToStatus(lastInterceptor, JobStatus.TransientFailure)
-        return JobState(eitherValue!!.value, interceptors).also { it.status = status }
+        return JobState(eitherValue?.value, interceptors).also { it.status = status }
     }
 
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {

@@ -1,7 +1,4 @@
-import franz.Either
-import franz.JobStatus
-import franz.Message
-import franz.WorkerBuilder
+import franz.*
 import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
 import kotlinx.coroutines.experimental.runBlocking
@@ -132,8 +129,8 @@ class WorkerTest{
                 .handlePiped {
                     it
                         .map { it.value() }
-                        .executeToEither{
-                            Either.result("test")
+                        .executeToResult{
+                            WorkerResult.success("test")
                         }
                         .require { it == "test" }
                         .end()
@@ -161,8 +158,8 @@ class WorkerTest{
                 .handlePiped {
                     it
                         .map { it.value() }
-                        .executeToEither{
-                            Either.retry
+                        .executeToResult{
+                            WorkerResult.retry
                         }
                         .require { it == "test" }   // This should not matter as the earlier worker ended with retry
                         .end()
@@ -190,11 +187,11 @@ class WorkerTest{
                 .handlePiped {
                     it
                         .map { it.value() }
-                        .executeToEither{
+                        .executeToResult{
                             if(true) {
-                                Either.result(100)
+                                WorkerResult.success(100)
                             }else{
-                                Either.retry
+                                WorkerResult.retry
                             }
                         }
                         .require { it == 100 }   // This should not matter as the earlier worker ended with retry

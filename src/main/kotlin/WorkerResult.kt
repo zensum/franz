@@ -5,7 +5,7 @@ class WorkerResult<out L> (
     val status: WorkerResultStatus
 ) {
     companion object {
-        fun <L> result(result: L) = WorkerResult(result, WorkerResultStatus.Success)
+        fun <L> success(result: L) = WorkerResult(result, WorkerResultStatus.Success)
         val retry = WorkerResult(null, WorkerResultStatus.Retry)
         val failure = WorkerResult(null, WorkerResultStatus.Failure)
     }

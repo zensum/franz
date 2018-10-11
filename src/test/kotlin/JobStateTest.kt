@@ -360,7 +360,7 @@ class JobStateTest {
     fun testPerformSuccess() {
         val state = runBlocking {
             jobOne
-                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.success(100) }
                 .end()
         }
 
@@ -371,7 +371,7 @@ class JobStateTest {
     fun testPerformRetry() {
         val state = runBlocking {
             jobOne
-                .executeToResult { WorkerResult.Retry }
+                .executeToResult { WorkerResult.retry }
                 .end()
         }
 
@@ -382,7 +382,7 @@ class JobStateTest {
     fun testPerformFailure() {
         val state = runBlocking {
             jobOne
-                .executeToResult { WorkerResult.Failure }
+                .executeToResult { WorkerResult.failure }
                 .end()
         }
 
@@ -393,9 +393,9 @@ class JobStateTest {
     fun testPerformHaltPipe() {
         val state = runBlocking {
             jobOne
-                .executeToResult { WorkerResult.Success }
-                .executeToResult { WorkerResult.Retry }     // Execution should not continue after this
-                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.success(100) }
+                .executeToResult { WorkerResult.retry }     // Execution should not continue after this
+                .executeToResult { WorkerResult.success(it) }
                 .end()
         }
 
@@ -406,9 +406,9 @@ class JobStateTest {
     fun testPerformSuccesfullPipe() {
         val state = runBlocking {
             jobOne
-                .executeToResult { WorkerResult.Success }
-                .executeToResult { WorkerResult.Success }
-                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.success(100) }
+                .executeToResult { WorkerResult.success(it) }
+                .executeToResult { WorkerResult.success(it) }
                 .end()
         }
 
@@ -420,7 +420,7 @@ class JobStateTest {
         val state = runBlocking {
             jobOne
                 .require { true }
-                .executeToResult { WorkerResult.Success }
+                .executeToResult { WorkerResult.success(100) }
                 .execute { true }
                 .end()
         }
@@ -615,47 +615,5 @@ class JobStateTest {
 
         assertEquals(JobStatus.Success, state)
         assertFalse(hasRunPermanentFailure)
-    }
-
-    @Test
-    fun testMapToEitherRetry(){
-        val state = runBlocking {
-            jobOne
-                .require { true }
-                .executeToEither(""){
-                    Either.retry
-                }
-                .end()
-        }
-
-        assertEquals(JobStatus.TransientFailure, state)
-    }
-
-    @Test
-    fun testMapToEitherFailure(){
-        val state = runBlocking {
-            jobOne
-                .require { true }
-                .executeToEither(""){
-                    Either.failure
-                }
-                .end()
-        }
-
-        assertEquals(JobStatus.PermanentFailure, state)
-    }
-
-    @Test
-    fun testMapToEitherResult(){
-        val state = runBlocking {
-            jobOne
-                .require { true }
-                .executeToEither(""){
-                    Either.result(12)
-                }
-                .end()
-        }
-
-        assertEquals(JobStatus.Success, state)
     }
 }
