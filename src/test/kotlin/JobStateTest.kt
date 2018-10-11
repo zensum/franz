@@ -357,7 +357,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testPerformSuccess() {
+    fun testExecuteToResultSuccess() {
         val state = runBlocking {
             jobOne
                 .executeToResult { WorkerResult.success(100) }
@@ -368,7 +368,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testPerformRetry() {
+    fun testExecuteToResultRetry() {
         val state = runBlocking {
             jobOne
                 .executeToResult { WorkerResult.retry }
@@ -379,7 +379,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testPerformFailure() {
+    fun testExecuteToResultFailure() {
         val state = runBlocking {
             jobOne
                 .executeToResult { WorkerResult.failure }
@@ -390,7 +390,40 @@ class JobStateTest {
     }
 
     @Test
-    fun testPerformHaltPipe() {
+    fun testExecuteToStatusSuccess() {
+        val state = runBlocking {
+            jobOne
+                .executeToStatus { WorkerStatus.Success }
+                .end()
+        }
+
+        assertEquals(JobStatus.Success, state)
+    }
+
+    @Test
+    fun testExecuteToStatusRetry() {
+        val state = runBlocking {
+            jobOne
+                .executeToResult { WorkerResult.retry }
+                .end()
+        }
+
+        assertEquals(JobStatus.TransientFailure, state)
+    }
+
+    @Test
+    fun testExecuteToStatusFailure() {
+        val state = runBlocking {
+            jobOne
+                .executeToResult { WorkerResult.failure }
+                .end()
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+    }
+
+    @Test
+    fun testExecuteToResultHaltPipe() {
         val state = runBlocking {
             jobOne
                 .executeToResult { WorkerResult.success(100) }
@@ -403,7 +436,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testPerformSuccesfullPipe() {
+    fun testExecuteToResultSuccessfullPipe() {
         val state = runBlocking {
             jobOne
                 .executeToResult { WorkerResult.success(100) }

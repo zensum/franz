@@ -114,7 +114,7 @@ class WorkerTest{
     }
 
     @Test
-    fun testExecuteToEitherResult(){
+    fun testExecuteToResultSuccess(){
         runBlocking {
             val mockedActor = MockConsumerActor.ofString(
                 listOf(
@@ -143,7 +143,7 @@ class WorkerTest{
     }
 
     @Test
-    fun testExecuteToEitherRetry(){
+    fun testExecuteToResultRetry(){
         runBlocking {
             val mockedActor = MockConsumerActor.ofString(
                 listOf(
@@ -172,7 +172,7 @@ class WorkerTest{
     }
 
     @Test
-    fun testExecuteToEither(){
+    fun testExecuteToResult(){
         runBlocking {
             val mockedActor = MockConsumerActor.ofString(
                 listOf(

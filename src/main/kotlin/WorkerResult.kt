@@ -2,22 +2,22 @@ package franz
 
 class WorkerResult<out L> (
     val value: L? = null,
-    val status: WorkerResultStatus
+    val status: WorkerStatus
 ) {
     companion object {
-        fun <L> success(result: L) = WorkerResult(result, WorkerResultStatus.Success)
-        val retry = WorkerResult(null, WorkerResultStatus.Retry)
-        val failure = WorkerResult(null, WorkerResultStatus.Failure)
+        fun <L> success(result: L) = WorkerResult(result, WorkerStatus.Success)
+        val retry = WorkerResult(null, WorkerStatus.Retry)
+        val failure = WorkerResult(null, WorkerStatus.Failure)
     }
 
     fun toJobStatus(): JobStatus = when(status){
-        WorkerResultStatus.Success -> JobStatus.Incomplete
-        WorkerResultStatus.Retry -> JobStatus.TransientFailure
-        WorkerResultStatus.Failure -> JobStatus.PermanentFailure
+        WorkerStatus.Success -> JobStatus.Incomplete
+        WorkerStatus.Retry -> JobStatus.TransientFailure
+        WorkerStatus.Failure -> JobStatus.PermanentFailure
     }
 }
 
-enum class WorkerResultStatus {
+enum class WorkerStatus {
     Success,
     Retry,
     Failure

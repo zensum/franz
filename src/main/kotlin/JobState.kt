@@ -17,6 +17,14 @@ class JobStateException(
     innerException: Throwable
 ):Exception(message, innerException)
 
+private val FAILED_JOB_STATUS = listOf(WorkerStatus.Failure, WorkerStatus.Retry)
+
+private fun WorkerStatus.toJobStatus() = when(this){
+    WorkerStatus.Success -> JobStatus.Incomplete
+    WorkerStatus.Failure -> JobStatus.PermanentFailure
+    WorkerStatus.Retry -> JobStatus.TransientFailure
+}
+
 class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerInterceptor> = emptyList()) {
     var status: JobStatus = JobStatus.Incomplete
 
@@ -45,11 +53,17 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     suspend fun execute(msg: String, predicate: Predicate<U>): JobState<U> = processPredicate(JobStatus.TransientFailure, predicate, msg)
 
     /**
-     * Use when an operation can result in either success, permanent failure or transient failure. This is quite common
-     * if an external resource is queried and the response may be successfully or trigger either a permanent, transient failure.
+     * Use when an operation can result in successfully mapped value or a failure in the form of a  permanent failure or transient failure. This is quite common
+     * if an external resource is queried and the response may be successfully and we want to use that value further down the pipe or trigger either a permanent, transient failure.
      */
     suspend fun <R: Any> executeToResult(fn: suspend (U) -> WorkerResult<R>) = processToWorkerResult(fn)
     suspend fun <R: Any> executeToResult(msg: String, fn: suspend (U) -> WorkerResult<R>) = processToWorkerResult(fn, msg)
+
+    /**
+     * Use when an operation can result in either success, permanent failure or transient failure. This works like executeToResult but won't want the data but only flag as result as successfull
+     */
+    suspend fun executeToStatus(fn: suspend (U) -> WorkerStatus) = processToWorkerStatus(fn)
+    suspend fun executeToStatus(msg: String, fn: suspend (U) -> WorkerStatus) = processToWorkerStatus(fn, msg)
 
     /**
      *  Use when either outcome is regarded as a successful result. Most common example of this is when a
@@ -170,12 +184,11 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         return JobState(value, interceptors).also { it.status = newStatus }
     }
 
-    /*
-    private suspend fun processWorkerFunction(fn: suspend(U) -> WorkerResult, msg: String? = null): JobState<U> {
+    private suspend fun processToWorkerStatus(fn: suspend(U) -> WorkerStatus, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {_, _ ->
             if(inProgress()) {
                 val result = fn(value!!)
-                if(FAILED_JOB_STATUSES.contains(result)){
+                if(FAILED_JOB_STATUS.contains(result)){
                     msg?.let {log.info { "Failed on: $it" }}
                 }
                 result.toJobStatus()
@@ -186,19 +199,18 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
         return process(lastInterceptor, JobStatus.TransientFailure)
     }
-    */
 
     private suspend fun <R: Any> processToWorkerResult(fn: suspend(U) -> WorkerResult<R>, msg: String? = null): JobState<R> {
-        var eitherValue: WorkerResult<R>? = null
+        var result: WorkerResult<R>? = null
         val lastInterceptor = WorkerInterceptor {_, _ ->
             if(inProgress()) {
                 try{
-                    eitherValue = fn(this.value!!)
+                    result = fn(this.value!!)
 
-                    if(eitherValue!!.status != WorkerResultStatus.Success){
+                    if(result!!.status != WorkerStatus.Success){
                         msg?.let {log.info { "Failed on: $it" }}
                     }
-                    eitherValue!!.toJobStatus()
+                    result!!.toJobStatus()
 
                 } catch (e: Throwable) {
                     msg?.let { log.info { "Failed on: $it" } }
@@ -210,7 +222,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         }
 
         val status = processToStatus(lastInterceptor, JobStatus.TransientFailure)
-        return JobState(eitherValue?.value, interceptors).also { it.status = status }
+        return JobState(result?.value, interceptors).also { it.status = status }
     }
 
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
