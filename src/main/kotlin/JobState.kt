@@ -129,15 +129,15 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
      * Runs a side effect function only if the current state of the worker is a transient failure state.
      * Useful for error handling in a piped worker.
      */
-    suspend fun onTransientFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure)
-    suspend fun onTransientFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.TransientFailure, msg = msg)
+    suspend fun onTransientFailure(fn: SideEffect<U>) = processOnFailure( fn, allowedStatuses = listOf(JobStatus.TransientFailure))
+    suspend fun onTransientFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = listOf(JobStatus.TransientFailure), msg = msg)
 
     /**
      * Runs a side effect function only if the current state of the worker is a permanent failure state.
      * Useful for error handling in a piped worker.
      */
-    suspend fun onPermanentFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure)
-    suspend fun onPermanentFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = JobStatus.PermanentFailure, msg = msg)
+    suspend fun onPermanentFailure(fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = listOf(JobStatus.PermanentFailure))
+    suspend fun onPermanentFailure(msg: String, fn: SideEffect<U>) = processOnFailure(fn, allowedStatuses = listOf(JobStatus.PermanentFailure), msg = msg)
 
     private suspend fun processEnd(predicate: Predicate<U>, msg:String? = null): JobStatus {
         if (inProgress()) {
@@ -235,7 +235,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
     }
 
-    private suspend fun processOnFailure(fn: SideEffect<U>, msg: String? = null, vararg allowedStatuses: JobStatus): JobState<U>{
+    private suspend fun processOnFailure(fn: SideEffect<U>, msg: String? = null, allowedStatuses: List<JobStatus>): JobState<U>{
         if(allowedStatuses.contains(status)){
             msg?.let { log.info { "Running on failure: ${it}" } }
             fn(value!!)
