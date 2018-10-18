@@ -158,7 +158,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
         val lastInterceptor = WorkerInterceptor {_, _ ->
             try{
                 tranformedValue = when (inProgress()) {
-                    true -> transform(value!!)
+                    true -> value?.let { transform(it) }
                     false -> null
                 }
                 this.status
