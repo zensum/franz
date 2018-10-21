@@ -10,6 +10,7 @@ import kotlinx.coroutines.experimental.launch
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
@@ -30,16 +31,21 @@ const val POLLING_INTERVAL = 30000L
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
                                       statuses: JobStatuses<T, U>)
     : JobStatuses<T, U> =
-    statuses.committableOffsets().also {
+    statuses.committableOffsets()
+        .mapValues { it.value.incrementOffset() }
+        .also {
         logger.info { "Pushing new offsets for ${it.count()} partitions" }
-        c.commitAsync(it, { res, exc ->
+        c.commitAsync(it) { res, exc ->
             if (exc != null) {
                 logger.error(exc) { "Crashed while committing: $res" }
             }
-        })
+        }
     }.let {
         statuses.removeCommitted(it)
     }
+
+private fun OffsetAndMetadata.incrementOffset(): OffsetAndMetadata =
+    OffsetAndMetadata(this.offset() + 1, this.metadata())
 
 private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,
