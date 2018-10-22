@@ -31,9 +31,7 @@ const val POLLING_INTERVAL = 30000L
 private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
                                       statuses: JobStatuses<T, U>)
     : JobStatuses<T, U> =
-    statuses.committableOffsets()
-        .mapValues { it.value.incrementOffset() }
-        .also {
+    statuses.committableOffsets().also {
         logger.info { "Pushing new offsets for ${it.count()} partitions" }
         c.commitAsync(it) { res, exc ->
             if (exc != null) {
@@ -43,9 +41,6 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
     }.let {
         statuses.removeCommitted(it)
     }
-
-private fun OffsetAndMetadata.incrementOffset(): OffsetAndMetadata =
-    OffsetAndMetadata(this.offset() + 1, this.metadata())
 
 private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
                                           outQueue: BlockingQueue<ConsumerRecord<T, U>>,

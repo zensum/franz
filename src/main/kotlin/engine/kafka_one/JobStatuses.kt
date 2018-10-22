@@ -17,7 +17,7 @@ private fun findCommittableOffsets(x: Map<JobId, JobStatus>) = x
         }
         .filterNotNull()
         .toMap()
-        .mapValues { (_, v) -> OffsetAndMetadata(v) }
+        .mapValues { (_, v) -> OffsetAndMetadata(v + 1) }
 
 data class JobStatuses<T, U>(
         private val jobStatuses: Map<JobId, JobStatus> = emptyMap<JobId, JobStatus>(),
