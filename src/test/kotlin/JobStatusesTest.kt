@@ -90,7 +90,7 @@ class JobStatusesTest {
                     "The default partition should have a committable offset"
             )
             val offset = res!!.offset()
-            assertEquals(offset, CR1.offset(), "The offset of the Successful job should be comitted")
+            assertEquals(offset, CR1.offset() + 1, "The offset of the Successful job should be comitted")
         }
     }
     @Test
@@ -118,7 +118,7 @@ class JobStatusesTest {
             val res = it[DEFAULT_TOPIC_PARTITION]
             assertNotNull(res, "One partition should be committable")
             val offset = res!!.offset()
-            assertEquals(offset, CR1.offset())
+            assertEquals(offset, CR1.offset() + 1)
         }
     }
     @Test
@@ -129,7 +129,7 @@ class JobStatusesTest {
         )).committableOffsets().let {
             assertNull(it[DEFAULT_TOPIC_P2], "Partition 2 should not be committable")
             assertNotNull(it[DEFAULT_TOPIC_PARTITION], "Partition 1 should be committable")
-            assertEquals(CR1.offset(), it[DEFAULT_TOPIC_PARTITION]!!.offset(), "CR1 should be committable")
+            assertEquals(CR1.offset() + 1, it[DEFAULT_TOPIC_PARTITION]!!.offset(), "CR1 should be committable")
         }
     }
     @Test
@@ -140,7 +140,7 @@ class JobStatusesTest {
         )).committableOffsets().let {
             assertNull(it[DEFAULT_TOPIC_PARTITION], "Default topic partition should not be committable")
             assertNotNull(it[ALTERNATE_TOPIC_P1], "alternate topic, partition 1 should be committable")
-            assertEquals(OTHER_TOPIC_CR1.offset(),
+            assertEquals(OTHER_TOPIC_CR1.offset() + 1,
                     it[ALTERNATE_TOPIC_P1]!!.offset(), "OTHER_TOPIC_CR1 should be committable"
             )
         }
