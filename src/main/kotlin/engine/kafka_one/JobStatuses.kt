@@ -36,11 +36,11 @@ data class JobStatuses<T, U>(
         copy(
                 jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->
                     val committedOffset = committed[topicPartition]?.offset() ?: -1
-                    offset > committedOffset
+                    offset >= committedOffset
                 },
                 records = records.filterValues {
                     val committedOffset = committed[it.topicPartition()]?.offset() ?: -1
-                    it.offset() > committedOffset
+                    it.offset() >= committedOffset
                 }
         )
     fun stateCounts() = jobStatuses.values.map { it::class.java.name!! }.groupBy { it }.mapValues { it.value.count() }
