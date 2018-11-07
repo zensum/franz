@@ -49,7 +49,10 @@ data class JobStatuses<T, U>(
     fun addJobs(jobs: Iterable<ConsumerRecord<T, U>>) =
             changeBatch(jobs.map { it.jobId() }, JobStatus.Incomplete)
                     .copy(records = records + jobs.map { it.jobId() to it })
-    fun rescheduleTransientFailures() = jobStatuses.filterValues { it.mayRetry() }.keys.let {
-        changeBatch(it, JobStatus.Retry) to it.map(records::getOrFail)
-    }
+    fun rescheduleTransientFailures(): Pair<JobStatuses<T, U>, List<ConsumerRecord<T, U>>> =
+        jobStatuses
+            .filterValues { it.mayRetry() }
+            .keys.let { jobIds: Set<JobId> ->
+            changeBatch(jobIds, JobStatus.Retry) to jobIds.map(records::getOrFail)
+        }
 }
