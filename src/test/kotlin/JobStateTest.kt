@@ -324,6 +324,23 @@ class JobStateTest {
     }
 
     @Test
+    fun testHandNullValueOnMapRequire() {
+        val state: JobStatus = runBlocking {
+            try {
+                jobOne
+                    .mapRequire("Get Java null") { JavaNullCreator.getNull() }
+                    .mapRequire("Map to length (this should fail)") { it.length }
+                    .end()
+                JobStatus.Incomplete
+            } catch(e: JobStateException) {
+                e.result
+            }
+        }
+
+        assertEquals(JobStatus.PermanentFailure, state)
+    }
+
+    @Test
     fun testRequireWithLogMessage() {
         val state = runBlocking {
             jobOne
