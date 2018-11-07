@@ -10,7 +10,7 @@ private fun <K, V> Map<K, V>.getOrFail(k: K): V {
     return try {
         get(k)!!
     } catch(e: NullPointerException) {
-        throw IllegalStateException("Got NPE when trying to access value for key $k in map $this ")
+        throw IllegalStateException("Got NPE when trying to access value for key $k in map ${this.keys} ")
     }
 }
 
