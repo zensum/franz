@@ -6,13 +6,8 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import java.lang.IllegalStateException
 
-private fun <K, V> Map<K, V>.getOrFail(k: K): V {
-    return try {
-        get(k)!!
-    } catch(e: NullPointerException) {
-        throw IllegalStateException("Got NPE when trying to access value for key $k in map ${this.keys} ")
-    }
-}
+private fun <K, V> Map<K, V>.getOrFail(k: K): V = get(k)
+    ?: throw IllegalStateException("Got null when trying to access value for key $k in map ${this.keys}")
 
 private fun findCommittableOffsets(x: Map<JobId, JobStatus>) = x
         .toList()
