@@ -79,12 +79,6 @@ compileJava {
     options.encoding = 'UTF-8'
 }
 
-kotlin {
-    experimental {
-        coroutines 'enable'
-    }
-}
-
 // Important: All classes containing test cases must match the
 // the regex pattern "^.*Tests?$" to be picked up by the junit-gradle plugin.
 sourceSets {
