@@ -46,7 +46,7 @@ data class WorkerBuilder<T> private constructor(
     fun start(scope: CoroutineScope = GlobalScope){
         val c = engine.create<String, T>(opts, topics)
         setupInterceptors()
-        c.createWorker(fn!!)
+        c.createWorker(fn!!, scope)
         c.start()
     }
 
