@@ -5,6 +5,7 @@ import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
 import franz.engine.WorkerFunction
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 
 abstract class MockConsumerActorBase<T, U> : ConsumerActor<T, U> {
@@ -30,7 +31,7 @@ abstract class MockConsumerActorBase<T, U> : ConsumerActor<T, U> {
         internalResults.add(Result(e, JobStatus.TransientFailure))
     }
 
-    override fun createWorker(fn: WorkerFunction<T, U>) {
+    override fun createWorker(fn: WorkerFunction<T, U>, scope: CoroutineScope) {
         worker(this, fn)
     }
 
