@@ -3,6 +3,8 @@ package franz
 import franz.engine.ConsumerActorFactory
 import franz.engine.WorkerFunction
 import franz.engine.kafka_one.KafkaConsumerActorFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.GlobalScope
 
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"
 private val byteArrayDeser = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -41,7 +43,7 @@ data class WorkerBuilder<T> private constructor(
 
     fun getInterceptors() = interceptors
 
-    fun start(){
+    fun start(scope: CoroutineScope = GlobalScope){
         val c = engine.create<String, T>(opts, topics)
         setupInterceptors()
         c.createWorker(fn!!)

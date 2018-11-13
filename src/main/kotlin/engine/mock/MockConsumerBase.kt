@@ -5,7 +5,7 @@ import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
 import franz.engine.WorkerFunction
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 
 abstract class MockConsumerActorBase<T, U> : ConsumerActor<T, U> {
 

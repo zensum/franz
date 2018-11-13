@@ -1,6 +1,6 @@
 package franz
 
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import java.util.*
 

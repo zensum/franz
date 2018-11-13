@@ -1,7 +1,7 @@
 import franz.*
 import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
