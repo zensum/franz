@@ -192,14 +192,14 @@ class JobStatusesTest {
     @Test
     fun testRemoveCommittedAll() {
         jsWith(recordsWStatuses(CR1 to JobStatus.Success, CR2 to JobStatus.Success))
-                .removeCommitted(mapOf(DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(2))).let {
+                .removeCommitted(mapOf(DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(3))).let {
             assertEquals(js, it, "Should be unchanged")
         }
     }
     @Test
     fun testRemoveCommittedSome() {
         jsWith(recordsWStatuses(CR1 to JobStatus.Success, CR2 to JobStatus.Success))
-                .removeCommitted(mapOf(DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(1))).let {
+                .removeCommitted(mapOf(DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(2))).let {
             assertEquals(
                     jsWith(recordsWStatuses(CR2 to JobStatus.Success)),
                     it,
@@ -217,7 +217,7 @@ class JobStatusesTest {
     @Test
     fun testRemoveOnePartition() {
         jsWith(recordsWStatuses(CR1 to JobStatus.Success, P2CR1 to JobStatus.Success))
-                .removeCommitted(mapOf(DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(1))).let {
+                .removeCommitted(mapOf(DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(2))).let {
             assertEquals(
                     jsWith(recordsWStatuses(P2CR1 to JobStatus.Success)),
                     it,
@@ -229,8 +229,8 @@ class JobStatusesTest {
     fun testRemoveTwoPartitions() {
         jsWith(recordsWStatuses(CR1 to JobStatus.Success, P2CR1 to JobStatus.Success))
                 .removeCommitted(mapOf(
-                        DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(1),
-                        DEFAULT_TOPIC_P2 to OffsetAndMetadata(2))).let {
+                        DEFAULT_TOPIC_PARTITION to OffsetAndMetadata(2),
+                        DEFAULT_TOPIC_P2 to OffsetAndMetadata(3))).let {
             assertEquals(js, it, "all records should be removed")
         }
     }

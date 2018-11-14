@@ -4,8 +4,10 @@ import franz.JobStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
+import java.lang.IllegalStateException
 
-private fun <K, V> Map<K, V>.getOrFail(k: K) = get(k)!!
+private fun <K, V> Map<K, V>.getOrFail(k: K): V = get(k)
+    ?: throw IllegalStateException("Got null when trying to access value for key $k in map ${this.keys}")
 
 private fun findCommittableOffsets(x: Map<JobId, JobStatus>) = x
         .toList()
@@ -29,11 +31,11 @@ data class JobStatuses<T, U>(
         copy(
                 jobStatuses = jobStatuses.filterKeys { (topicPartition, offset) ->
                     val committedOffset = committed[topicPartition]?.offset() ?: -1
-                    offset > committedOffset
+                    offset >= committedOffset
                 },
                 records = records.filterValues {
                     val committedOffset = committed[it.topicPartition()]?.offset() ?: -1
-                    it.offset() > committedOffset
+                    it.offset() >= committedOffset
                 }
         )
     fun stateCounts() = jobStatuses.values.map { it::class.java.name!! }.groupBy { it }.mapValues { it.value.count() }
@@ -42,7 +44,10 @@ data class JobStatuses<T, U>(
     fun addJobs(jobs: Iterable<ConsumerRecord<T, U>>) =
             changeBatch(jobs.map { it.jobId() }, JobStatus.Incomplete)
                     .copy(records = records + jobs.map { it.jobId() to it })
-    fun rescheduleTransientFailures() = jobStatuses.filterValues { it.mayRetry() }.keys.let {
-        changeBatch(it, JobStatus.Retry) to it.map(records::getOrFail)
-    }
+    fun rescheduleTransientFailures(): Pair<JobStatuses<T, U>, List<ConsumerRecord<T, U>>> =
+        jobStatuses
+            .filterValues { it.mayRetry() }
+            .keys.let { jobIds: Set<JobId> ->
+            changeBatch(jobIds, JobStatus.Retry) to jobIds.map(records::getOrFail)
+        }
 }

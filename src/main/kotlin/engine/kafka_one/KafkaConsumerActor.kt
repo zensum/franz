@@ -66,7 +66,7 @@ private fun <T, U> processCommandQueue(
     c: KafkaConsumer<T, U>,
     jobStatuses: JobStatuses<T, U>,
     commandQueue: BlockingQueue<SetJobStatus>
-) = drainQueue(commandQueue).let {
+): JobStatuses<T, U> = drainQueue(commandQueue).let {
     if (it.isNotEmpty()) {
         commitFinishedJobs(c, jobStatuses.update(it.toMap()))
     } else {
@@ -119,9 +119,10 @@ private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
                     writeRemainder(it, c, commandQueue, outQueue)
                 }
             }
-            .let {
-                retryTransientFailures(outQueue, it).let {
-                    writeRemainder(it, c, commandQueue, outQueue)
+            .let { statuses: JobStatuses<T, U> ->
+                retryTransientFailures(outQueue, statuses).let {
+                        p:  Pair<List<ConsumerRecord<T, U>>, JobStatuses<T, U>> ->
+                    writeRemainder(p, c, commandQueue, outQueue)
                 }
             }
     }
