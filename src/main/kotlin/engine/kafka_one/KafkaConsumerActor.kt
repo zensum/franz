@@ -1,16 +1,16 @@
 package franz.engine.kafka_one
+
 import franz.JobStateException
 import franz.JobStatus
 import franz.Message
 import franz.engine.ConsumerActor
 import franz.engine.WorkerFunction
-import franz.log
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
@@ -150,8 +150,11 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     override fun setJobStatus(message: Message<T, U>, status: JobStatus) =
         commandQueue.put(SetJobStatus((message as KafkaMessage).jobId(), status))
 
-    override fun createWorker(fn: WorkerFunction<T, U>){
-        Thread { worker(this, fn)}.start()
+    override fun createWorker(
+        fn: WorkerFunction<T, U>,
+        scope: CoroutineScope
+    ){
+        Thread { worker(this, fn, scope)}.start()
     }
 
     private inline fun tryJobStatus(fn: () -> JobStatus) = try {
@@ -164,10 +167,14 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
         JobStatus.TransientFailure
     }
 
-    private fun <T, U> worker(consumer: ConsumerActor<T, U>, fn: WorkerFunction<T, U>){
+    private fun <T, U> worker(
+        consumer: ConsumerActor<T, U>,
+        fn: WorkerFunction<T, U>,
+        scope: CoroutineScope
+    ){
         try {
             consumer.subscribe {
-                launch(CommonPool) {
+                scope.launch(Dispatchers.Default) {
                     consumer.setJobStatus(it, tryJobStatus {
                         fn(it)
                     })

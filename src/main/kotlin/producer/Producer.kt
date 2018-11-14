@@ -2,7 +2,7 @@ package franz.producer
 
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.util.concurrent.CompletableFuture
-import kotlinx.coroutines.experimental.future.await
+import kotlinx.coroutines.future.await
 
 typealias ProduceResultF = CompletableFuture<ProduceResult>
 

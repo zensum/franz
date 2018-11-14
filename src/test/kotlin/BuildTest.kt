@@ -1,6 +1,6 @@
 import franz.WorkerBuilder
 import franz.engine.mock.MockConsumerActor
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 class BuildTest{
