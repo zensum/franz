@@ -15,7 +15,7 @@ class JobStateException(
     val result: JobStatus,
     message: String,
     innerException: Throwable
-):Exception(message, innerException)
+):Throwable(message, innerException)
 
 private val FAILED_JOB_STATUS = listOf(WorkerStatus.Failure, WorkerStatus.Retry)
 
