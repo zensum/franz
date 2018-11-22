@@ -1,16 +1,20 @@
 package franz.engine.kafka_one
 
 import franz.JobStatus
+import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import java.lang.IllegalStateException
+
+private val log = KotlinLogging.logger("JobStatuses")
 
 private fun <K, V> Map<K, V>.getOrFail(k: K): V = get(k)
     ?: throw IllegalStateException("Got null when trying to access value for key $k in map ${this.keys}")
 
 private fun findCommittableOffsets(x: Map<JobId, JobStatus>) = x
         .toList()
+        .also { log.debug { "Got ${x.size} uncommitted offsets" } }
         .groupBy { it.first.first }
         .map { (_, values) ->
             values.sortedBy { (key, _) -> key.second }
@@ -18,6 +22,7 @@ private fun findCommittableOffsets(x: Map<JobId, JobStatus>) = x
                     .lastOrNull()?.first
         }
         .filterNotNull()
+        .onEach { log.debug { "Will commit offsets $it" } }
         .toMap()
         .mapValues { (_, v) -> OffsetAndMetadata(v + 1) }
 
