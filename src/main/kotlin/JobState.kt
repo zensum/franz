@@ -224,7 +224,7 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {_, _ ->
             if (inProgress() && !predicate(value!!)) {
-                msg?.let { log.info("Failed on: $it") }
+                msg?.let { log.info{"Failed on: $it"} }
                 newStatus
             }else{
                 this.status

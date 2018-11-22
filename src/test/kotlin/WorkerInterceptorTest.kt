@@ -2,11 +2,12 @@ package franz
 
 import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.experimental.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
 
-class DummyException(): Exception()
+class DummyException(): Throwable()
 
 class WorkerInterceptorTest {
 
@@ -220,7 +221,7 @@ class WorkerInterceptorTest {
                     .install(WorkerInterceptor { i, default ->
                         try {
                             i.executeNext(default)
-                        } catch (e: Exception) {
+                        } catch (e: Throwable) {
                             exceptionEncountered = true
                         }
                         JobStatus.PermanentFailure
