@@ -32,6 +32,7 @@ class TestMessage<T>(private val value: T) : Message<String, T> {
 class JobStateTest {
     private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(TestMessage(value))
     val jobOne = jobFrom("1")
+    val nullJob = JobState<Message<String, ByteArray>>(null)
 
     @Test
     fun testCreateJobState() {
@@ -50,6 +51,7 @@ class JobStateTest {
 
         assertEquals(JobStatus.Incomplete, status.status)
     }
+
 
     @Test
     fun testValidateFalse() {
@@ -204,12 +206,12 @@ class JobStateTest {
         val job = jobOne
 
         var ex: JobStateException? = null
-        try{
+        try {
             runBlocking {
                 job
                     .mapRequire { throw DummyException() }
             }
-        }catch (e: JobStateException){
+        } catch (e: JobStateException) {
             ex = e
         }
 
@@ -332,7 +334,7 @@ class JobStateTest {
                     .mapRequire("Map to length (this should fail)") { it.length }
                     .end()
                 JobStatus.Incomplete
-            } catch(e: JobStateException) {
+            } catch (e: JobStateException) {
                 e.result
             }
         }
@@ -479,10 +481,10 @@ class JobStateTest {
     }
 
     @Test
-    fun testBranchIfSuccess(){
+    fun testBranchIfSuccess() {
         val state = runBlocking {
             jobOne
-                .branchIf(true){
+                .branchIf(true) {
                     it
                         .execute { true }
                         .jobStatus()
@@ -494,10 +496,10 @@ class JobStateTest {
     }
 
     @Test
-    fun testBranchIfFailure(){
+    fun testBranchIfFailure() {
         val state = runBlocking {
             jobOne
-                .branchIf(true){
+                .branchIf(true) {
                     it
                         .execute { false }
                         .jobStatus()
@@ -509,10 +511,10 @@ class JobStateTest {
     }
 
     @Test
-    fun testBranchIfSuccesHalt(){
+    fun testBranchIfSuccesHalt() {
         val state = runBlocking {
             jobOne
-                .branchIf(true){
+                .branchIf(true) {
                     it
                         .execute { true }
                         .end()
@@ -525,10 +527,10 @@ class JobStateTest {
     }
 
     @Test
-    fun testBranchIfFailureHalt(){
+    fun testBranchIfFailureHalt() {
         val state = runBlocking {
             jobOne
-                .branchIf(true){
+                .branchIf(true) {
                     it
                         .execute { false }
                         .end()
@@ -541,15 +543,16 @@ class JobStateTest {
     }
 
     @Test
-    fun testSeveralBranches(){
+    fun testSeveralBranches() {
         val state = runBlocking {
             jobOne
-                .branchIf(false){ // This branch is never run
+                .branchIf(false) {
+                    // This branch is never run
                     it
                         .execute { false }
                         .end()
                 }
-                .branchIf(true){
+                .branchIf(true) {
                     it
                         .execute { true }
                         .end()
@@ -562,11 +565,12 @@ class JobStateTest {
     }
 
     @Test
-    fun testPredicateBranch(){
+    fun testPredicateBranch() {
         val state = runBlocking {
             jobOne
                 .map { "test" }
-                .branchIf({ it == "test"} ){ // This branch is never run
+                .branchIf({ it == "test" }) {
+                    // This branch is never run
                     it
                         .execute { true }
                         .end()
@@ -578,7 +582,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testOnTransientFailureWithTransientFailure(){
+    fun testOnTransientFailureWithTransientFailure() {
         var hasRunTransientFailure = false
 
         val state = runBlocking {
@@ -593,7 +597,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testOnTransientFailureWithPermanentFailure(){
+    fun testOnTransientFailureWithPermanentFailure() {
         var hasRunTransientFailure = false
 
         val state = runBlocking {
@@ -608,7 +612,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testOnTransientFailureWithIncomplete(){
+    fun testOnTransientFailureWithIncomplete() {
         var hasRunTransientFailure = false
 
         val state = runBlocking {
@@ -623,7 +627,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testOnPermanentFailureWithTransientFailure(){
+    fun testOnPermanentFailureWithTransientFailure() {
         var hasRunPermanentFailure = false
 
         val state = runBlocking {
@@ -638,7 +642,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testOnPermanentFailureWithPermanentFailure(){
+    fun testOnPermanentFailureWithPermanentFailure() {
         var hasRunPermanentFailure = false
 
         val state = runBlocking {
@@ -653,7 +657,7 @@ class JobStateTest {
     }
 
     @Test
-    fun testOnPermanentFailureWithIncomplete(){
+    fun testOnPermanentFailureWithIncomplete() {
         var hasRunPermanentFailure = false
 
         val state = runBlocking {
@@ -665,5 +669,61 @@ class JobStateTest {
 
         assertEquals(JobStatus.Success, state)
         assertFalse(hasRunPermanentFailure)
+    }
+
+    @Test
+    fun testNullJobStateValue() {
+        val job = nullJob
+        assertEquals(null, job.value)
+    }
+
+    @Test
+    fun executeWithNullValue() {
+        val job = nullJob
+        assertThrows(JobStateException::class.java) {
+            runBlocking {
+                job.execute { true }
+            }
+        }
+    }
+
+    @Test
+    fun executeToStatusWithNullValue() {
+        val job = nullJob
+        assertThrows(JobStateException::class.java) {
+            runBlocking {
+                job.executeToStatus { WorkerStatus.Retry }
+            }
+        }
+    }
+
+    @Test
+    fun requireWithNullValue() {
+        val job = nullJob
+        assertThrows(JobStateException::class.java) {
+            runBlocking {
+                job.require { true }
+            }
+        }
+    }
+
+    @Test
+    fun mapNullValue() {
+        val job = nullJob
+        assertThrows(JobStateException::class.java) {
+            runBlocking {
+                job.map { 10 }
+            }
+        }
+    }
+
+    @Test
+    fun mapRequireNullValue() {
+        val job = nullJob
+        assertThrows(JobStateException::class.java) {
+            runBlocking {
+                job.map { 10 }
+            }
+        }
     }
 }

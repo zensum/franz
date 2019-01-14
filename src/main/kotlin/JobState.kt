@@ -185,15 +185,19 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     }
 
     private suspend fun processToWorkerStatus(fn: suspend(U) -> WorkerStatus, msg: String? = null): JobState<U> {
-        val lastInterceptor = WorkerInterceptor {_, _ ->
-            if(inProgress()) {
-                val result = fn(value!!)
-                if(FAILED_JOB_STATUS.contains(result)){
-                    msg?.let {log.info { "Failed on: $it" }}
+        val lastInterceptor = WorkerInterceptor { _, _ ->
+            try {
+                if (inProgress()) {
+                    val result = fn(value!!)
+                    if (FAILED_JOB_STATUS.contains(result)) {
+                        msg?.let { log.info { "Failed on: $it" } }
+                    }
+                    result.toJobStatus()
+                } else {
+                    this.status
                 }
-                result.toJobStatus()
-            }else{
-                this.status
+            }catch (t: Throwable){
+                throw JobStateException(result = JobStatus.TransientFailure, message = msg ?: "Failed on: $msg", innerException = t)
             }
         }
 
@@ -202,18 +206,17 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
     private suspend fun <R: Any> processToWorkerResult(fn: suspend(U) -> WorkerResult<R>, msg: String? = null): JobState<R> {
         var transformedValue: WorkerResult<R>? = null
-        val lastInterceptor = WorkerInterceptor {_, _ ->
-            if(inProgress()) {
-                val result = try{
-                    fn(this.value!!)
-                }catch (e: Throwable){
-                    msg?.let { log.info { "Failed on: $it" } }
-                    throw JobStateException(result = JobStatus.TransientFailure, message = msg?:"Failed on: $msg", innerException = e)
+        val lastInterceptor = WorkerInterceptor { _, _ ->
+            try {
+                if (inProgress()) {
+                    val result = fn(this.value!!)
+                    transformedValue = result           // The result need to be viewed outside this interceptor stage
+                    result.toJobStatus()
+                } else {
+                    this.status
                 }
-                transformedValue = result           // The result need to be viewed outside this interceptor stage
-                result.toJobStatus()
-            }else{
-                this.status
+            } catch (t: Throwable) {
+                throw JobStateException(result = JobStatus.TransientFailure, message = msg ?: "Failed on: $msg", innerException = t)
             }
         }
 
@@ -223,11 +226,15 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor {_, _ ->
-            if (inProgress() && !predicate(value!!)) {
-                msg?.let { log.info{"Failed on: $it"} }
-                newStatus
-            }else{
-                this.status
+            try {
+                if (inProgress() && !predicate(value!!)) {
+                    msg?.let { log.info { "Failed on: $it" } }
+                    newStatus
+                } else {
+                    this.status
+                }
+            }catch (t: Throwable){
+                throw JobStateException(result = newStatus, message = msg?:"Failed on: $msg", innerException = t)
             }
         }
 
