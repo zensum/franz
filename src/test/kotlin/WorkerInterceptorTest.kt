@@ -180,8 +180,9 @@ class WorkerInterceptorTest {
 
     @Test
     fun tryCatchInInterceptorWithRequire(){
+
+        var throwable: Throwable? = null
         runBlocking {
-            var exceptionEncountered = false
             val worker =
                 WorkerBuilder.ofByteArray
                     .subscribedTo("TOPIC")
@@ -190,8 +191,8 @@ class WorkerInterceptorTest {
                     .install(WorkerInterceptor { i, default ->
                         try {
                             i.executeNext(default)
-                        } catch (e: DummyException) {
-                            exceptionEncountered = true
+                        } catch (e: Throwable) {
+                            throwable = e
                         }
                         JobStatus.PermanentFailure
                     })
@@ -203,14 +204,15 @@ class WorkerInterceptorTest {
                     }
 
             worker.start()
-            assertTrue(exceptionEncountered)
+            assertNotNull(throwable)
+            assertEquals(JobStateException::class.java, throwable!!::class.java)
         }
     }
 
     @Test
     fun tryCatchInInterceptorWithMap(){
         runBlocking {
-            var exceptionEncountered = false
+            var throwable: Throwable? = null
 
             val engine = MockConsumerActor.ofString(listOf(createTestMessage()))
             val worker =
@@ -222,7 +224,7 @@ class WorkerInterceptorTest {
                         try {
                             i.executeNext(default)
                         } catch (e: Throwable) {
-                            exceptionEncountered = true
+                            throwable = e
                         }
                         JobStatus.PermanentFailure
                     })
@@ -234,7 +236,8 @@ class WorkerInterceptorTest {
                     }
 
             worker.start()
-            assertTrue(exceptionEncountered)
+            assertNotNull(throwable)
+            assertEquals(JobStateException::class.java, throwable!!::class.java)
         }
     }
 
