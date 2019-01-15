@@ -216,7 +216,26 @@ class JobStateTest {
         }
 
         assertNotNull(ex)
-        assertEquals(JobStatus.PermanentFailure, ex?.result)
+        assertEquals(JobStatus.PermanentFailure, ex.result)
+    }
+
+    @Test
+    fun testMapRequireThrowsToEarlyPermanentFailure() {
+        val job = jobOne
+
+        var ex: JobStateException? = null
+        try {
+            runBlocking {
+                job
+                    .mapRequire { throw DummyException() }
+                    .require { true }
+            }
+        } catch (e: JobStateException) {
+            ex = e
+        }
+
+        assertNotNull(ex)
+        assertEquals(JobStatus.PermanentFailure, ex.result)
     }
 
     @Test

@@ -156,16 +156,18 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
     private suspend fun <R: Any> processMap(newStatus: JobStatus, transform: Transform<U, R>, msg: String? = null): JobState<R>{
         var tranformedValue: R? = null
         val lastInterceptor = WorkerInterceptor {_, _ ->
-            try{
-                tranformedValue = when (inProgress()) {
-                    true -> transform(value!!)
-                    false -> null
+            tranformedValue = when (inProgress()) {
+                true -> {
+                    try{
+                        transform(value!!)
+                    }catch(e: Throwable) {
+                        msg?.let { log.info { "Failed on: $it" } }
+                        throw JobStateException(result = newStatus, message = msg?:"Failed on: $msg", innerException = e)
+                    }
                 }
-                this.status
-            }catch(e: Throwable) {
-                msg?.let { log.info { "Failed on: $it" } }
-                throw JobStateException(result = newStatus, message = msg?:"Failed on: $msg", innerException = e)
+                false -> null
             }
+            this.status
         }
 
         val status = processToStatus(lastInterceptor, newStatus)
@@ -186,18 +188,18 @@ class JobState<U: Any> constructor(val value: U?, val interceptors: List<WorkerI
 
     private suspend fun processToWorkerStatus(fn: suspend(U) -> WorkerStatus, msg: String? = null): JobState<U> {
         val lastInterceptor = WorkerInterceptor { _, _ ->
-            try {
-                if (inProgress()) {
+            if (inProgress()) {
+                try {
                     val result = fn(value!!)
                     if (FAILED_JOB_STATUS.contains(result)) {
                         msg?.let { log.info { "Failed on: $it" } }
                     }
                     result.toJobStatus()
-                } else {
-                    this.status
+                }catch (t: Throwable){
+                    throw JobStateException(result = JobStatus.TransientFailure, message = msg ?: "Failed on: $msg", innerException = t)
                 }
-            }catch (t: Throwable){
-                throw JobStateException(result = JobStatus.TransientFailure, message = msg ?: "Failed on: $msg", innerException = t)
+            } else {
+                this.status
             }
         }
 
