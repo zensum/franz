@@ -3,6 +3,7 @@ import franz.engine.mock.MockConsumerActor
 import franz.engine.mock.MockMessage
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
+import java.util.*
 import kotlin.test.assertEquals
 
 typealias PipedWorkerFunction<T, U> = suspend (JobState<Message<T, U>>) -> JobStatus
@@ -24,7 +25,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value")
+                JobState("value", Stack())
                     .map { true }
                     .end()
             }.start()
@@ -41,7 +42,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value")
+                JobState("value", Stack())
                     .sideEffect{ println("Im running")}
                     .map { throw DummyException() }
                     .end()
@@ -59,7 +60,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value")
+                JobState("value", Stack())
                     .mapRequire { true }
                     .end()
             }.start()
@@ -76,7 +77,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value")
+                JobState("value", Stack())
                     .mapRequire { throw DummyException() }
                     .end()
             }.start()
