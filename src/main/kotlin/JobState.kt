@@ -12,7 +12,7 @@ typealias Context = suspend (List<JobStatusContext>) -> Unit
 
 val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
-fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value, Stack())
+fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value, Stack(), emptyList())
 
 class JobStateException(
     val result: JobStatus,
@@ -28,7 +28,7 @@ private fun WorkerStatus.toJobStatus() = when(this){
     WorkerStatus.Retry -> JobStatus.TransientFailure
 }
 
-class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusContext>, val interceptors: List<WorkerInterceptor> = emptyList()) {
+class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusContext>, val interceptors: List<WorkerInterceptor>) {
     var status: JobStatus = JobStatus.Incomplete
 
         get() = field
@@ -168,7 +168,7 @@ class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusCo
     private suspend fun <R: Any> processMap(newStatus: JobStatus, transform: Transform<U, R>, msg: String? = null): JobState<R>{
         context.push(JobStatusContext(msg, status, value ))
         var tranformedValue: R? = null
-        val lastInterceptor = WorkerInterceptor {_, _, _ ->
+        val lastInterceptor = WorkerInterceptor {_, _->
             tranformedValue = when (inProgress()) {
                 true -> {
                     try{
@@ -202,7 +202,7 @@ class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusCo
 
     private suspend fun processToWorkerStatus(fn: suspend(U) -> WorkerStatus, msg: String? = null): JobState<U> {
         context.push(JobStatusContext(msg, status, value ))
-        val lastInterceptor = WorkerInterceptor { _, _, _ ->
+        val lastInterceptor = WorkerInterceptor { _, _->
             if (inProgress()) {
                 try {
                     val result = fn(value!!)
@@ -224,7 +224,7 @@ class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusCo
     private suspend fun <R: Any> processToWorkerResult(fn: suspend(U) -> WorkerResult<R>, msg: String? = null): JobState<R> {
         context.push(JobStatusContext(msg, status, value ))
         var transformedValue: WorkerResult<R>? = null
-        val lastInterceptor = WorkerInterceptor { _, _, _ ->
+        val lastInterceptor = WorkerInterceptor { _, _->
             try {
                 if (inProgress()) {
                     val result = fn(this.value!!)
@@ -244,7 +244,7 @@ class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusCo
 
     private suspend fun processPredicate(newStatus: JobStatus, predicate: suspend (U) -> Boolean, msg: String? = null): JobState<U> {
         context.push(JobStatusContext(msg, status, value ))
-        val lastInterceptor = WorkerInterceptor {_, _, _ ->
+        val lastInterceptor = WorkerInterceptor {_, _->
             try {
                 if (inProgress() && !predicate(value!!)) {
                     msg?.let { log.info { "Failed on: $it" } }
@@ -280,7 +280,9 @@ class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusCo
             }
         }
 
-        val endValue = firstInterceptor.onIntercept(firstInterceptor, defaultStatus, this as JobState<Any> )
+        interceptors.forEach { it.jobState = this as JobState<Any> }
+
+        val endValue = firstInterceptor.onIntercept(firstInterceptor, defaultStatus )
         this.status = endValue
 
         return this
@@ -295,6 +297,8 @@ class JobState<U: Any> constructor(val value: U?, val context: Stack<JobStatusCo
             }
         }
 
-        return firstInterceptor.onIntercept(firstInterceptor, defaultStatus, this as JobState<Any>)
+        interceptors.forEach { it.jobState = this as JobState<Any> }
+
+        return firstInterceptor.onIntercept(firstInterceptor, defaultStatus)
     }
 }
