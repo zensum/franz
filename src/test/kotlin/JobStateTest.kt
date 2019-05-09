@@ -31,9 +31,9 @@ class TestMessage<T>(private val value: T) : Message<String, T> {
 }
 
 class JobStateTest {
-    private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(TestMessage(value), Stack(), emptyList())
+    private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(TestMessage(value), Stack(), Stack(), emptyList())
     val jobOne = jobFrom("1")
-    val nullJob = JobState<Message<String, ByteArray>>(null, Stack(), emptyList())
+    val nullJob = JobState<Message<String, ByteArray>>(null, Stack(), Stack(), emptyList())
 
     @Test
     fun testCreateJobState() {

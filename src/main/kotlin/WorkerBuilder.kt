@@ -19,7 +19,7 @@ private suspend fun <T, U> runningWorker(fn: RunningFunction<T, U>): WorkerFunct
 }
 
 private suspend fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, interceptors: List<WorkerInterceptor>): WorkerFunction<T, U> = {
-    fn(JobState(it, Stack(), interceptors.toList()))
+    fn(JobState(it, Stack(), Stack(),interceptors.toList()))
 }
 
 data class WorkerBuilder<T> private constructor(

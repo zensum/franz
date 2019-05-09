@@ -156,6 +156,9 @@ class JobState<U: Any> constructor(
         return this
     }
 
+    /**
+     * Adds a breadcrumb string to this jobstate. Is only readable via WorkerInterceptors.
+     */
     fun addBreadcrumb(value: String): JobState<U> {
         breadcrumbs.push(value)
         return this
