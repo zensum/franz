@@ -9,6 +9,7 @@ typealias WorkerFunction<U> = suspend (JobState<U>) -> JobStatus
 typealias SideEffect<U> = suspend (U) -> Unit
 typealias Transform<U, R> = suspend (U) -> R
 typealias Context = suspend (List<JobStatusContext>) -> Unit
+typealias Breadcrumb<U> = suspend (U) -> String
 
 val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
@@ -159,8 +160,8 @@ class JobState<U: Any> constructor(
     /**
      * Adds a breadcrumb string to this jobstate. Is only readable via WorkerInterceptors.
      */
-    fun addBreadcrumb(value: String): JobState<U> {
-        breadcrumbs.push(value)
+    suspend fun addBreadcrumb(fn: Breadcrumb<U>): JobState<U> {
+        breadcrumbs.push(fn(this.value!!))
         return this
     }
 
