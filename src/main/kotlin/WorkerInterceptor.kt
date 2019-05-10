@@ -1,17 +1,16 @@
 package franz
 
+typealias InterceptorStage = suspend(WorkerInterceptor, JobStatus) -> JobStatus
+
 open class WorkerInterceptor(
+    var jobState: JobState<Any>? = null,
     var next: WorkerInterceptor? = null,
-    val onIntercept: (suspend (interceptor: WorkerInterceptor, default: JobStatus) -> JobStatus) = { interceptor, default ->
+    val onIntercept: InterceptorStage = { interceptor, default ->
         interceptor.executeNext(default)
     }
 ){
     suspend fun executeNext(default: JobStatus): JobStatus {
         val nextInterceptor = next
-        if(nextInterceptor != null){
-            return nextInterceptor.onIntercept(nextInterceptor, default)
-        }else{
-            return JobStatus.Success
-        }
+        return nextInterceptor?.onIntercept?.invoke(nextInterceptor, default) ?: JobStatus.Success
     }
 }

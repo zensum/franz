@@ -5,6 +5,7 @@ import franz.engine.WorkerFunction
 import franz.engine.kafka_one.KafkaConsumerActorFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
+import java.util.*
 
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"
 private val byteArrayDeser = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -18,7 +19,7 @@ private suspend fun <T, U> runningWorker(fn: RunningFunction<T, U>): WorkerFunct
 }
 
 private suspend fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, interceptors: List<WorkerInterceptor>): WorkerFunction<T, U> = {
-    fn(JobState(it, interceptors))
+    fn(JobState(it, Stack(), Stack(),interceptors.toList()))
 }
 
 data class WorkerBuilder<T> private constructor(

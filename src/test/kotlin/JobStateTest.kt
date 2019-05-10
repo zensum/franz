@@ -3,6 +3,7 @@ package franz
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import java.util.*
 import kotlin.test.*
 
 class TestMessage<T>(private val value: T) : Message<String, T> {
@@ -30,9 +31,9 @@ class TestMessage<T>(private val value: T) : Message<String, T> {
 }
 
 class JobStateTest {
-    private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(TestMessage(value))
+    private fun <U> jobFrom(value: U): JobState<Message<String, U>> = JobState(TestMessage(value), Stack(), Stack(), emptyList())
     val jobOne = jobFrom("1")
-    val nullJob = JobState<Message<String, ByteArray>>(null)
+    val nullJob = JobState<Message<String, ByteArray>>(null, Stack(), Stack(), emptyList())
 
     @Test
     fun testCreateJobState() {
