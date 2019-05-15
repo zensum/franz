@@ -56,7 +56,7 @@ private fun <T, U> fetchMessagesFromKafka(
         }
         logger.debug { "Size outQueue: ${outQueue.size}, remaining capacity: ${outQueue.remainingCapacity()}" }
         outQueue.offerAll(it) to jobStatuses.addJobs(it)
-    }.also { logger.debug { "Added ${it.first.size} tasks to outQueue" } }
+    }
 
 private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>): List<T> = xs.dropWhile { offer(it) }
 
