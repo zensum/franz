@@ -187,7 +187,8 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     ){
         try {
             consumer.subscribe {
-                scope.launch(Dispatchers.Default) {
+                logger.trace { "Consumer is subscribing" }
+                scope.launch(scope.coroutineContext) {
                     logger.trace { "Launching consumer" }
                     consumer.setJobStatus(it, tryJobStatus {
                         logger.trace { "Executing worker function" }
