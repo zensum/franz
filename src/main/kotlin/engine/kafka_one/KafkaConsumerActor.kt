@@ -54,9 +54,9 @@ private fun <T, U> fetchMessagesFromKafka(
         } else {
             logger.debug { "Adding no new tasks from Kafka" }
         }
-        logger.debug { "Size outQueue ${outQueue.size}" }
+        logger.debug { "Size outQueue: ${outQueue.size}, remaining capacity: ${outQueue.remainingCapacity()}" }
         outQueue.offerAll(it) to jobStatuses.addJobs(it)
-    }
+    }.also { logger.debug { "Added ${it.first.size} tasks to outQueue" } }
 
 private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>): List<T> = xs.dropWhile { offer(it) }
 
@@ -158,8 +158,10 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
         }
     }
     override fun stop() = runFlag.lazySet(false)
-    override fun setJobStatus(message: Message<T, U>, status: JobStatus) =
+    override fun setJobStatus(message: Message<T, U>, status: JobStatus) {
         commandQueue.put(SetJobStatus((message as KafkaMessage).jobId(), status))
+        logger.debug { "Set JobStatus in command queue " }
+    }
 
     override fun createWorker(
         fn: WorkerFunction<T, U>,
@@ -186,8 +188,12 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
         try {
             consumer.subscribe {
                 scope.launch(Dispatchers.Default) {
+                    logger.trace { "Launching consumer" }
                     consumer.setJobStatus(it, tryJobStatus {
-                        fn(it)
+                        logger.trace { "Executing worker function" }
+                        fn(it).also {
+                            logger.trace { "Worker function executed with result: $it" }
+                        }
                     })
                 }
             }
