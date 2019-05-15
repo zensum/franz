@@ -6,7 +6,6 @@ import franz.Message
 import franz.engine.ConsumerActor
 import franz.engine.WorkerFunction
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
