@@ -3,9 +3,15 @@ package franz
 import franz.engine.ConsumerActorFactory
 import franz.engine.WorkerFunction
 import franz.engine.kafka_one.KafkaConsumerActorFactory
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.*
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"
 private val byteArrayDeser = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -27,7 +33,8 @@ data class WorkerBuilder<T> private constructor(
     private val opts: Map<String, Any> = emptyMap(),
     private val topics: List<String> = emptyList(),
     private val engine: ConsumerActorFactory = KafkaConsumerActorFactory,
-    private val interceptors: List<WorkerInterceptor> = emptyList()
+    private val interceptors: List<WorkerInterceptor> = emptyList(),
+    private val scope: CoroutineScope = GlobalScope
 ){
     suspend fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
     @Deprecated("Use piped or handler instead")
@@ -38,13 +45,14 @@ data class WorkerBuilder<T> private constructor(
     fun groupId(id: String) = option("group.id", id)
     fun option(k: String, v: Any) = options(mapOf(k to v))
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
+    fun scope(scope: CoroutineScope): WorkerBuilder<T> = copy(scope = scope)
     fun setEngine(e: ConsumerActorFactory): WorkerBuilder<T> = copy(engine = e)
 
     fun install(i: WorkerInterceptor): WorkerBuilder<T> = copy(interceptors = interceptors.toMutableList().also{ it.add(i)})
 
     fun getInterceptors() = interceptors
 
-    fun start(scope: CoroutineScope = GlobalScope){
+    fun start() {
         val c = engine.create<String, T>(opts, topics)
         setupInterceptors()
         c.createWorker(fn!!, scope)
