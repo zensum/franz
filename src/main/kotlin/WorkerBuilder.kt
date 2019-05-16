@@ -6,7 +6,6 @@ import franz.engine.kafka_one.KafkaConsumerActorFactory
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
@@ -34,7 +33,7 @@ data class WorkerBuilder<T> private constructor(
     private val topics: List<String> = emptyList(),
     private val engine: ConsumerActorFactory = KafkaConsumerActorFactory,
     private val interceptors: List<WorkerInterceptor> = emptyList(),
-    private val scope: CoroutineScope = GlobalScope
+    private val scope: CoroutineScope = createDefaultScope()
 ){
     suspend fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
     @Deprecated("Use piped or handler instead")
@@ -80,3 +79,17 @@ data class WorkerBuilder<T> private constructor(
     }
 }
 
+private const val THREAD_POOL_CORE_SIZE: Int = 1
+private const val THREAD_POOL_MAX_SIZE: Int = 2
+private const val THREAD_POOL_KEEP_ALIVE_TIME_SECONDS: Long = 30
+
+private fun createDefaultScope(): CoroutineScope {
+    val dispatcher: CoroutineDispatcher = ThreadPoolExecutor(
+        THREAD_POOL_CORE_SIZE,
+        THREAD_POOL_MAX_SIZE,
+        THREAD_POOL_KEEP_ALIVE_TIME_SECONDS,
+        TimeUnit.SECONDS,
+        ArrayBlockingQueue(50)
+    ).asCoroutineDispatcher()
+    return CoroutineScope(dispatcher + CoroutineName("default-franz-coroutine-scope"))
+}
