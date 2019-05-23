@@ -33,7 +33,7 @@ data class WorkerBuilder<T> private constructor(
     private val topics: List<String> = emptyList(),
     private val engine: ConsumerActorFactory = KafkaConsumerActorFactory,
     private val interceptors: List<WorkerInterceptor> = emptyList(),
-    private val scope: CoroutineScope = createDefaultScope()
+    private val coroutineScope: CoroutineScope = createDefaultScope()
 ){
     suspend fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
     @Deprecated("Use piped or handler instead")
@@ -44,7 +44,7 @@ data class WorkerBuilder<T> private constructor(
     fun groupId(id: String) = option("group.id", id)
     fun option(k: String, v: Any) = options(mapOf(k to v))
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
-    fun scope(scope: CoroutineScope): WorkerBuilder<T> = copy(scope = scope)
+    fun coroutineScope(coroutineScope: CoroutineScope): WorkerBuilder<T> = copy(coroutineScope = coroutineScope)
     fun setEngine(e: ConsumerActorFactory): WorkerBuilder<T> = copy(engine = e)
 
     fun install(i: WorkerInterceptor): WorkerBuilder<T> = copy(interceptors = interceptors.toMutableList().also{ it.add(i)})
@@ -54,7 +54,7 @@ data class WorkerBuilder<T> private constructor(
     fun start() {
         val c = engine.create<String, T>(opts, topics)
         setupInterceptors()
-        c.createWorker(fn!!, scope)
+        c.createWorker(fn!!, coroutineScope)
         c.start()
     }
 
