@@ -3,9 +3,14 @@ package franz
 import franz.engine.ConsumerActorFactory
 import franz.engine.WorkerFunction
 import franz.engine.kafka_one.KafkaConsumerActorFactory
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.*
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 private val stringDeser = "org.apache.kafka.common.serialization.StringDeserializer"
 private val byteArrayDeser = "org.apache.kafka.common.serialization.ByteArrayDeserializer"
@@ -27,7 +32,8 @@ data class WorkerBuilder<T> private constructor(
     private val opts: Map<String, Any> = emptyMap(),
     private val topics: List<String> = emptyList(),
     private val engine: ConsumerActorFactory = KafkaConsumerActorFactory,
-    private val interceptors: List<WorkerInterceptor> = emptyList()
+    private val interceptors: List<WorkerInterceptor> = emptyList(),
+    private val coroutineScope: CoroutineScope = createDefaultScope()
 ){
     suspend fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
     @Deprecated("Use piped or handler instead")
@@ -38,16 +44,17 @@ data class WorkerBuilder<T> private constructor(
     fun groupId(id: String) = option("group.id", id)
     fun option(k: String, v: Any) = options(mapOf(k to v))
     fun options(newOpts: Map<String, Any>) = copy(opts = opts + newOpts)
+    fun coroutineScope(coroutineScope: CoroutineScope): WorkerBuilder<T> = copy(coroutineScope = coroutineScope)
     fun setEngine(e: ConsumerActorFactory): WorkerBuilder<T> = copy(engine = e)
 
     fun install(i: WorkerInterceptor): WorkerBuilder<T> = copy(interceptors = interceptors.toMutableList().also{ it.add(i)})
 
     fun getInterceptors() = interceptors
 
-    fun start(scope: CoroutineScope = GlobalScope){
+    fun start() {
         val c = engine.create<String, T>(opts, topics)
         setupInterceptors()
-        c.createWorker(fn!!, scope)
+        c.createWorker(fn!!, coroutineScope)
         c.start()
     }
 
@@ -72,3 +79,28 @@ data class WorkerBuilder<T> private constructor(
     }
 }
 
+/**
+ * The number of threads to keep in the pool, even if they are idle
+ */
+private const val THREAD_POOL_MIN_SIZE: Int = 1
+/**
+ * The maximum number of threads to allow in the pool
+ */
+private const val THREAD_POOL_MAX_SIZE: Int = 2
+/**
+ * When the number of threads is greater than the [THREAD_POOL_MAX_SIZE],
+ * this is the maximum time in seconds that excess idle threads will wait
+ * for new tasks before terminating
+ */
+private const val THREAD_POOL_KEEP_ALIVE_TIME_SECONDS: Long = 30
+
+private fun createDefaultScope(): CoroutineScope {
+    val dispatcher: CoroutineDispatcher = ThreadPoolExecutor(
+        THREAD_POOL_MIN_SIZE,
+        THREAD_POOL_MAX_SIZE,
+        THREAD_POOL_KEEP_ALIVE_TIME_SECONDS,
+        TimeUnit.SECONDS,
+        ArrayBlockingQueue(50)
+    ).asCoroutineDispatcher()
+    return CoroutineScope(dispatcher + CoroutineName("default-franz-coroutine-scope"))
+}

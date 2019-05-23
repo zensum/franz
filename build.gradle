@@ -34,8 +34,8 @@ apply plugin: 'com.github.johnrengelman.shadow'
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.0.1'
-    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.0.1'
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.2.0'
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.0'
     compile 'io.github.microutils:kotlin-logging:1.4.6'
     compile 'org.apache.kafka:kafka-clients:0.11.0.0'
     runtime 'ch.qos.logback:logback-classic:1.2.3'

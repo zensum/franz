@@ -13,3 +13,5 @@ build
 *.ipr
 *.iws
 out/
+
+src/main/resources/logback.xml

@@ -6,7 +6,6 @@ import franz.Message
 import franz.engine.ConsumerActor
 import franz.engine.WorkerFunction
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -28,9 +27,10 @@ private fun <T> drainQueue(bq: BlockingQueue<T>): List<T> =
 
 const val POLLING_INTERVAL = 30000L
 
-private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
-                                      statuses: JobStatuses<T, U>)
-    : JobStatuses<T, U> =
+private fun <T, U> commitFinishedJobs(
+    c: KafkaConsumer<T, U>,
+    statuses: JobStatuses<T, U>
+): JobStatuses<T, U> =
     statuses.committableOffsets().also {
         logger.info { "Pushing new offsets for ${it.count()} partitions" }
         c.commitAsync(it) { res, exc ->
@@ -42,19 +42,27 @@ private fun <T, U> commitFinishedJobs(c: KafkaConsumer<T, U>,
         statuses.removeCommitted(it)
     }
 
-private fun <T, U> fetchMessagesFromKafka(c: KafkaConsumer<T, U>,
-                                          outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-                                          jobStatuses: JobStatuses<T, U>) =
+private fun <T, U> fetchMessagesFromKafka(
+    c: KafkaConsumer<T, U>,
+    outQueue: BlockingQueue<ConsumerRecord<T, U>>,
+    jobStatuses: JobStatuses<T, U>
+): Pair<List<ConsumerRecord<T, U>>, JobStatuses<T, U>> =
     c.poll(POLLING_INTERVAL).let {
         if (it.count() > 0) {
             logger.info { "Adding ${it.count()} new tasks from Kafka" }
+        } else {
+            logger.debug { "Adding no new tasks from Kafka" }
         }
+        logger.debug { "Size outQueue: ${outQueue.size}, remaining capacity: ${outQueue.remainingCapacity()}" }
         outQueue.offerAll(it) to jobStatuses.addJobs(it)
     }
 
-private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>) = xs.dropWhile { offer(it) }
+private fun <T> BlockingQueue<T>.offerAll(xs: Iterable<T>): List<T> = xs.dropWhile { offer(it) }
 
-private fun <T, U> retryTransientFailures(outQueue: BlockingQueue<ConsumerRecord<T, U>>, jobStatuses: JobStatuses<T, U>) =
+private fun <T, U> retryTransientFailures(
+    outQueue: BlockingQueue<ConsumerRecord<T, U>>,
+    jobStatuses: JobStatuses<T, U>
+): Pair<List<ConsumerRecord<T, U>>, JobStatuses<T, U>> =
     jobStatuses.rescheduleTransientFailures().let { (newJobStatuses, producerRecs) ->
         if (producerRecs.isNotEmpty()) {
             logger.info { "Retrying ${producerRecs.count()} tasks" }
@@ -108,10 +116,12 @@ private fun sequenceWhile(fn: () -> Boolean): Sequence<Unit> =
 private fun <T> iterate(whileFn: () -> Boolean, initialValue: T, fn: (T) -> T) =
     sequenceWhile(whileFn).fold(initialValue) { acc, _ -> fn(acc) }
 
-private fun <T, U> consumerLoop(c: KafkaConsumer<T, U>,
-                                outQueue: BlockingQueue<ConsumerRecord<T, U>>,
-                                commandQueue: BlockingQueue<SetJobStatus>,
-                                run: () -> Boolean) =
+private fun <T, U> consumerLoop(
+    c: KafkaConsumer<T, U>,
+    outQueue: BlockingQueue<ConsumerRecord<T, U>>,
+    commandQueue: BlockingQueue<SetJobStatus>,
+    run: () -> Boolean
+): JobStatuses<T, U> =
     iterate(run, JobStatuses<T, U>()) {
         processCommandQueue(c, it, commandQueue)
             .let {
@@ -147,8 +157,10 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
         }
     }
     override fun stop() = runFlag.lazySet(false)
-    override fun setJobStatus(message: Message<T, U>, status: JobStatus) =
+    override fun setJobStatus(message: Message<T, U>, status: JobStatus) {
         commandQueue.put(SetJobStatus((message as KafkaMessage).jobId(), status))
+        logger.debug { "Set JobStatus in command queue " }
+    }
 
     override fun createWorker(
         fn: WorkerFunction<T, U>,
@@ -174,9 +186,14 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
     ){
         try {
             consumer.subscribe {
-                scope.launch(Dispatchers.Default) {
+                logger.trace { "Consumer is subscribing" }
+                scope.launch(scope.coroutineContext) {
+                    logger.trace { "Launching consumer" }
                     consumer.setJobStatus(it, tryJobStatus {
-                        fn(it)
+                        logger.trace { "Executing worker function" }
+                        fn(it).also {
+                            logger.trace { "Worker function executed with result: $it" }
+                        }
                     })
                 }
             }
