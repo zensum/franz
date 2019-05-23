@@ -79,13 +79,24 @@ data class WorkerBuilder<T> private constructor(
     }
 }
 
-private const val THREAD_POOL_CORE_SIZE: Int = 1
+/**
+ * The number of threads to keep in the pool, even if they are idle
+ */
+private const val THREAD_POOL_MIN_SIZE: Int = 1
+/**
+ * The maximum number of threads to allow in the pool
+ */
 private const val THREAD_POOL_MAX_SIZE: Int = 2
+/**
+ * When the number of threads is greater than the [THREAD_POOL_MAX_SIZE],
+ * this is the maximum time in seconds that excess idle threads will wait
+ * for new tasks before terminating
+ */
 private const val THREAD_POOL_KEEP_ALIVE_TIME_SECONDS: Long = 30
 
 private fun createDefaultScope(): CoroutineScope {
     val dispatcher: CoroutineDispatcher = ThreadPoolExecutor(
-        THREAD_POOL_CORE_SIZE,
+        THREAD_POOL_MIN_SIZE,
         THREAD_POOL_MAX_SIZE,
         THREAD_POOL_KEEP_ALIVE_TIME_SECONDS,
         TimeUnit.SECONDS,
