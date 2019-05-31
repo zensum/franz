@@ -13,4 +13,9 @@ open class WorkerInterceptor(
         val nextInterceptor = next
         return nextInterceptor?.onIntercept?.invoke(nextInterceptor, default) ?: JobStatus.Success
     }
+
+    fun clone() =
+        WorkerInterceptor(
+            onIntercept = onIntercept
+        )
 }
