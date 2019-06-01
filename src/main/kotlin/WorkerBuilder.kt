@@ -27,6 +27,35 @@ private suspend fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, intercepto
     fn(JobState(it, Stack(), Stack(),interceptors.toList()))
 }
 
+/**
+ * The number of threads to keep in the pool, even if they are idle
+ */
+private const val THREAD_POOL_MIN_SIZE: Int = 1
+/**
+ * The maximum number of threads to allow in the pool
+ */
+private const val THREAD_POOL_MAX_SIZE: Int = 2
+/**
+ * When the number of threads is greater than the [THREAD_POOL_MAX_SIZE],
+ * this is the maximum time in seconds that excess idle threads will wait
+ * for new tasks before terminating
+ */
+private const val DEFAULT_THREAD_POOL_KEEP_ALIVE_TIME_SECONDS: Long = 30
+
+private fun createDefaultScope(): CoroutineScope =
+    createThreadScope(THREAD_POOL_MIN_SIZE, THREAD_POOL_MAX_SIZE, DEFAULT_THREAD_POOL_KEEP_ALIVE_TIME_SECONDS)
+
+fun createThreadScope(minPoolSize: Int,maxPoolSize: Int, threadPoolKeepAlive: Long): CoroutineScope {
+    val dispatcher: CoroutineDispatcher = ThreadPoolExecutor(
+        THREAD_POOL_MIN_SIZE,
+        THREAD_POOL_MAX_SIZE,
+        DEFAULT_THREAD_POOL_KEEP_ALIVE_TIME_SECONDS,
+        TimeUnit.SECONDS,
+        ArrayBlockingQueue(50)
+    ).asCoroutineDispatcher()
+    return CoroutineScope(dispatcher + CoroutineName("franz-coroutine-scope"))
+}
+
 data class WorkerBuilder<T> private constructor(
     private val fn: WorkerFunction<String, T>? = null,
     private val opts: Map<String, Any> = emptyMap(),
@@ -77,30 +106,4 @@ data class WorkerBuilder<T> private constructor(
         val ofByteArray = WorkerBuilder<ByteArray>().option(valueDeserKey, byteArrayDeser)
         val ofString = WorkerBuilder<String>().option(valueDeserKey, stringDeser)
     }
-}
-
-/**
- * The number of threads to keep in the pool, even if they are idle
- */
-private const val THREAD_POOL_MIN_SIZE: Int = 1
-/**
- * The maximum number of threads to allow in the pool
- */
-private const val THREAD_POOL_MAX_SIZE: Int = 2
-/**
- * When the number of threads is greater than the [THREAD_POOL_MAX_SIZE],
- * this is the maximum time in seconds that excess idle threads will wait
- * for new tasks before terminating
- */
-private const val THREAD_POOL_KEEP_ALIVE_TIME_SECONDS: Long = 30
-
-private fun createDefaultScope(): CoroutineScope {
-    val dispatcher: CoroutineDispatcher = ThreadPoolExecutor(
-        THREAD_POOL_MIN_SIZE,
-        THREAD_POOL_MAX_SIZE,
-        THREAD_POOL_KEEP_ALIVE_TIME_SECONDS,
-        TimeUnit.SECONDS,
-        ArrayBlockingQueue(50)
-    ).asCoroutineDispatcher()
-    return CoroutineScope(dispatcher + CoroutineName("default-franz-coroutine-scope"))
 }
