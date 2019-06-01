@@ -45,11 +45,15 @@ private const val DEFAULT_THREAD_POOL_KEEP_ALIVE_TIME_SECONDS: Long = 30
 private fun createDefaultScope(): CoroutineScope =
     createThreadScope(THREAD_POOL_MIN_SIZE, THREAD_POOL_MAX_SIZE, DEFAULT_THREAD_POOL_KEEP_ALIVE_TIME_SECONDS)
 
-fun createThreadScope(minPoolSize: Int,maxPoolSize: Int, threadPoolKeepAlive: Long): CoroutineScope {
+fun createThreadScope(
+    minPoolSize: Int = THREAD_POOL_MIN_SIZE,
+    maxPoolSize: Int = THREAD_POOL_MAX_SIZE,
+    threadPoolKeepAlive: Long = DEFAULT_THREAD_POOL_KEEP_ALIVE_TIME_SECONDS
+): CoroutineScope {
     val dispatcher: CoroutineDispatcher = ThreadPoolExecutor(
-        THREAD_POOL_MIN_SIZE,
-        THREAD_POOL_MAX_SIZE,
-        DEFAULT_THREAD_POOL_KEEP_ALIVE_TIME_SECONDS,
+        minPoolSize,
+        maxPoolSize,
+        threadPoolKeepAlive,
         TimeUnit.SECONDS,
         ArrayBlockingQueue(50)
     ).asCoroutineDispatcher()
