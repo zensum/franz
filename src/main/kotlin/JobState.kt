@@ -311,7 +311,7 @@ class JobState<U: Any> constructor(
 
 
         if(result.size > 1){
-            for(i in 1 .. result.size){
+            for(i in 1.until(result.size)){
                 result[i -1].next = result[i]
             }
         }
