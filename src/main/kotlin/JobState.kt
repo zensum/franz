@@ -310,7 +310,7 @@ class JobState<U: Any> constructor(
             .also { it.forEach { it.jobState = jobState } }
 
 
-        if(result.size > 2){
+        if(result.size > 1){
             for(i in 1 .. result.size){
                 result[i -1].next = result[i]
             }
