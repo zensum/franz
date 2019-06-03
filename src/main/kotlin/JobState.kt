@@ -301,6 +301,7 @@ class JobState<U: Any> constructor(
 
     private fun setupInterceptors(lastInterceptor: WorkerInterceptor, interceptors: List<WorkerInterceptor>, jobState: JobState<Any>): WorkerInterceptor {
 
+        println("Setup interceptors")
         val result = interceptors.map {
             it.clone()
         }.toMutableList()
