@@ -10,7 +10,6 @@ open class WorkerInterceptor(
     }
 ){
     suspend fun executeNext(default: JobStatus): JobStatus {
-        println("Execute next step")
         val nextInterceptor = next
         return nextInterceptor?.onIntercept?.invoke(nextInterceptor, default) ?: JobStatus.Success
     }
