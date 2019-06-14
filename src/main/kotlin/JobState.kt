@@ -13,7 +13,7 @@ typealias Breadcrumb<U> = suspend (U) -> String
 
 val log = KotlinLogging.logger("job")
 @Deprecated("Use WorkerBuilder.pipedHandler instead")
-fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value, Stack(), Stack(), emptyList())
+fun <T, U: Any> JobDSL<T, U>.asPipe(): JobState<U> = JobState(this.value, Stack(), Stack(), null)
 
 class JobStateException(
     val result: JobStatus,
@@ -33,7 +33,7 @@ class JobState<U: Any> constructor(
     val value: U?,
     val context: Stack<JobStatusContext>,
     val breadcrumbs: Stack<String>,
-    val interceptors: List<WorkerInterceptor>
+    val interceptors: WorkerInterceptor? = null
 ) {
     var status: JobStatus = JobStatus.Incomplete
 
@@ -286,15 +286,9 @@ class JobState<U: Any> constructor(
     }
 
     private suspend fun process(lastInterceptor: WorkerInterceptor, defaultStatus: JobStatus): JobState<U>{
-        val firstInterceptor = when(interceptors.size){
-            0 -> lastInterceptor
-            else -> {
-                interceptors.last().next = lastInterceptor
-                interceptors.first()
-            }
-        }
+        val firstInterceptor = interceptors.addInterceptor(lastInterceptor)
 
-        interceptors.forEach { it.jobState = this as JobState<Any> }
+        firstInterceptor.setState(this)
 
         val endValue = firstInterceptor.onIntercept(firstInterceptor, defaultStatus )
         this.status = endValue
@@ -303,16 +297,8 @@ class JobState<U: Any> constructor(
     }
 
     private suspend fun processToStatus(lastInterceptor: WorkerInterceptor, defaultStatus: JobStatus): JobStatus{
-        val firstInterceptor = when(interceptors.size){
-            0 -> lastInterceptor
-            else -> {
-                interceptors.last().next = lastInterceptor
-                interceptors.first()
-            }
-        }
-
-        interceptors.forEach { it.jobState = this as JobState<Any> }
-
+        val firstInterceptor = interceptors.addInterceptor(lastInterceptor)
+        firstInterceptor.setState(this)
         return firstInterceptor.onIntercept(firstInterceptor, defaultStatus)
     }
 }

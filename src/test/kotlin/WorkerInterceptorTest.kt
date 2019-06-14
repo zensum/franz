@@ -29,7 +29,7 @@ class WorkerInterceptorTest {
                     }
 
 
-            assertEquals(0, worker.getInterceptors().size)
+            assertEquals(0, worker.getInterceptors().size())
         }
     }
 
@@ -50,7 +50,7 @@ class WorkerInterceptorTest {
 
                     }
 
-            assertEquals(1, worker.getInterceptors().size)
+            assertEquals(1, worker.getInterceptors().size())
         }
     }
 
@@ -71,7 +71,7 @@ class WorkerInterceptorTest {
 
                     }
 
-            assertEquals(3, worker.getInterceptors().size)
+            assertEquals(3, worker.getInterceptors().size())
         }
     }
 
@@ -91,7 +91,7 @@ class WorkerInterceptorTest {
 
                     }
 
-            assertEquals(1, worker.getInterceptors().size)
+            assertEquals(1, worker.getInterceptors().size())
         }
     }
 
@@ -112,7 +112,7 @@ class WorkerInterceptorTest {
 
                     }
 
-            assertEquals(2, worker.getInterceptors().size)
+            assertEquals(2, worker.getInterceptors().size())
         }
     }
 

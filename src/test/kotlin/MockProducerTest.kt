@@ -25,7 +25,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value", Stack(), Stack(), emptyList())
+                JobState("value", Stack(), Stack(), null)
                     .map { true }
                     .end()
             }.start()
@@ -42,7 +42,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value", Stack(), Stack(), emptyList())
+                JobState("value", Stack(), Stack(), null)
                     .sideEffect{ println("Im running")}
                     .map { throw DummyException() }
                     .end()
@@ -60,7 +60,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value", Stack(), Stack(), emptyList())
+                JobState("value", Stack(), Stack(), null)
                     .mapRequire { true }
                     .end()
             }.start()
@@ -77,7 +77,7 @@ class MockProducerTest {
             val mockConsumer = MockConsumerActor.ofString(listOf(getMockMessage("hai")))
 
             getMockWorker(mockConsumer) {
-                JobState("value", Stack(), Stack(), emptyList())
+                JobState("value", Stack(), Stack(), null)
                     .mapRequire { throw DummyException() }
                     .end()
             }.start()

@@ -23,8 +23,8 @@ private suspend fun <T, U> runningWorker(fn: RunningFunction<T, U>): WorkerFunct
     fn(JobDSL(it))
 }
 
-private suspend fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, interceptors: List<WorkerInterceptor>): WorkerFunction<T, U> = {
-    fn(JobState(it, Stack(), Stack(),interceptors.toList()))
+private suspend fun <T, U> pipedWorker(fn: PipedWorkerFunction<T, U>, interceptors: WorkerInterceptor): WorkerFunction<T, U> = {
+    fn(JobState(it, Stack(), Stack(), interceptors))
 }
 
 /**
@@ -65,7 +65,7 @@ data class WorkerBuilder<T> private constructor(
     private val opts: Map<String, Any> = emptyMap(),
     private val topics: List<String> = emptyList(),
     private val engine: ConsumerActorFactory = KafkaConsumerActorFactory,
-    private val interceptors: List<WorkerInterceptor> = emptyList(),
+    private val interceptors: WorkerInterceptor = EmptyInterceptor,
     private val coroutineScope: CoroutineScope = createDefaultScope()
 ){
     suspend fun handler(f: WorkerFunction<String, T>) = copy(fn = f)
@@ -80,23 +80,17 @@ data class WorkerBuilder<T> private constructor(
     fun coroutineScope(coroutineScope: CoroutineScope): WorkerBuilder<T> = copy(coroutineScope = coroutineScope)
     fun setEngine(e: ConsumerActorFactory): WorkerBuilder<T> = copy(engine = e)
 
-    fun install(i: WorkerInterceptor): WorkerBuilder<T> = copy(interceptors = interceptors.toMutableList().also{ it.add(i)})
+    fun install(interceptor: WorkerInterceptor): WorkerBuilder<T> {
+        val interceptorPipeline: WorkerInterceptor = this.interceptors.addInterceptor(interceptor)
+        return this.copy(interceptors = interceptorPipeline)
+    }
 
     fun getInterceptors() = interceptors
 
     fun start() {
         val c = engine.create<String, T>(opts, topics)
-        setupInterceptors()
         c.createWorker(fn!!, coroutineScope)
         c.start()
-    }
-
-    private fun setupInterceptors(){
-        if(interceptors.size > 2){
-            for(i in 1 .. interceptors.size){
-                interceptors[i -1].next = interceptors[i]
-            }
-        }
     }
 
     private tailrec fun merge(builder: WorkerBuilder<T>, topics: Array<String>, i: Int = 0): WorkerBuilder<T> {
