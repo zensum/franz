@@ -86,17 +86,8 @@ data class WorkerBuilder<T> private constructor(
 
     fun start() {
         val c = engine.create<String, T>(opts, topics)
-        setupInterceptors()
         c.createWorker(fn!!, coroutineScope)
         c.start()
-    }
-
-    private fun setupInterceptors(){
-        if(interceptors.size > 2){
-            for(i in 1 .. interceptors.size){
-                interceptors[i -1].next = interceptors[i]
-            }
-        }
     }
 
     private tailrec fun merge(builder: WorkerBuilder<T>, topics: Array<String>, i: Int = 0): WorkerBuilder<T> {

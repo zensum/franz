@@ -2,7 +2,6 @@ package franz
 
 import mu.KotlinLogging
 import java.util.*
-import java.util.Collections.copy
 
 typealias Predicate<U> = suspend (U) -> Boolean
 typealias WorkerFunction<U> = suspend (JobState<U>) -> JobStatus
@@ -286,33 +285,36 @@ class JobState<U: Any> constructor(
     }
 
     private suspend fun process(lastInterceptor: WorkerInterceptor, defaultStatus: JobStatus): JobState<U>{
-        val firstInterceptor = when(interceptors.size){
-            0 -> lastInterceptor
-            else -> {
-                interceptors.last().next = lastInterceptor
-                interceptors.first()
-            }
-        }
+        val firstInterceptor = setupInterceptors(lastInterceptor, interceptors, this as JobState<Any>)
+        val endValue =  firstInterceptor.onIntercept(firstInterceptor, defaultStatus)
 
-        interceptors.forEach { it.jobState = this as JobState<Any> }
-
-        val endValue = firstInterceptor.onIntercept(firstInterceptor, defaultStatus )
         this.status = endValue
 
         return this
     }
 
     private suspend fun processToStatus(lastInterceptor: WorkerInterceptor, defaultStatus: JobStatus): JobStatus{
-        val firstInterceptor = when(interceptors.size){
-            0 -> lastInterceptor
-            else -> {
-                interceptors.last().next = lastInterceptor
-                interceptors.first()
+        val firstInterceptor = setupInterceptors(lastInterceptor, interceptors, this as JobState<Any>)
+        return firstInterceptor.onIntercept(firstInterceptor, defaultStatus)
+    }
+
+
+    private fun setupInterceptors(lastInterceptor: WorkerInterceptor, interceptors: List<WorkerInterceptor>, jobState: JobState<Any>): WorkerInterceptor {
+        val result = interceptors.map {
+            it.clone()
+        }.toMutableList()
+            .also { it.add(lastInterceptor)}
+            .toList()
+            .also { it.forEach { it.jobState = jobState } }
+
+
+        if(result.size > 1){
+            for(i in 1.until(result.size)){
+                result[i -1].next = result[i]
             }
         }
 
-        interceptors.forEach { it.jobState = this as JobState<Any> }
-
-        return firstInterceptor.onIntercept(firstInterceptor, defaultStatus)
+        return result.first()
     }
+
 }
