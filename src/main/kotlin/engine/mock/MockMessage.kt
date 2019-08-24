@@ -9,7 +9,7 @@ class MockMessage<T>(
     private val value: T,
     private val headers: Array<Pair<String, ByteArray>> = emptyArray(),
     private val key: String = "key:$offset",
-    private val timestamp: Long = Instant.now().epochSecond
+    private val timestamp: Long = Instant.now().toEpochMilli()
 ): Message<String, T> {
     override fun offset(): Long = offset
     override fun value(): T = value
