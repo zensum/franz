@@ -11,8 +11,10 @@ import mu.KotlinLogging
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.TopicPartition
+import java.util.Comparator
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
+import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
@@ -142,8 +144,8 @@ const val MESSAGE_QUEUE_DEPTH = 1000
 
 class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) : ConsumerActor<T, U> {
     constructor(opts: Map<String, Any>, topics: List<String>): this(kafkaConsumer<T, U>(opts, topics))
-    private val outQueue = ArrayBlockingQueue<ConsumerRecord<T, U>>(MESSAGE_QUEUE_DEPTH)
-    private val commandQueue = ArrayBlockingQueue<SetJobStatus>(COMMAND_QUEUE_DEPTH)
+    private val outQueue = PriorityBlockingQueue<ConsumerRecord<T, U>>(MESSAGE_QUEUE_DEPTH, ConsumerRecordComparator)
+    private val commandQueue = PriorityBlockingQueue<SetJobStatus>(COMMAND_QUEUE_DEPTH, SetJobStatusComparator)
     private val runFlag = AtomicBoolean(true)
     private fun createThread() =
         Thread({ consumerLoop(kafkaConsumer, outQueue, commandQueue, runFlag::get) }).also { logger.info { "Creating thread..." } }
@@ -199,6 +201,36 @@ class KafkaConsumerActor<T, U>(private val kafkaConsumer: KafkaConsumer<T, U>) :
             }
         }catch (ex: Exception){
             logger.error ("Starting worker threw an exception", ex)
+        }
+    }
+}
+
+object ConsumerRecordComparator: Comparator<ConsumerRecord<*, *>> {
+    override fun compare(p0: ConsumerRecord<*, *>, p1: ConsumerRecord<*, *>): Int {
+        val sameTopic: Boolean = p0.topic() == p1.topic()
+        val samePartition: Boolean = p0.partition() == p1.partition()
+        val diffTimestamp: Int = p0.timestamp().compareTo(p1.timestamp())
+        val diffOffset: Int = p0.partition().compareTo(p1.offset())
+        return when {
+            !sameTopic -> diffTimestamp
+            !samePartition -> diffTimestamp
+            else -> diffOffset
+        }
+    }
+}
+
+private object SetJobStatusComparator: Comparator<SetJobStatus> {
+    override fun compare(p0: SetJobStatus, p1: SetJobStatus): Int {
+        val sameTopic: Boolean = p0.first.first.topic() == p1.first.first.topic()
+        val samePartition: Boolean = p0.first.first.partition() == p1.first.first.partition()
+        val p0Offset: Long = p0.first.second
+        val p1Offset: Long = p1.first.second
+        return when {
+            p0.second.mayRetry() && !p1.second.mayRetry() -> -1
+            !p0.second.mayRetry() && p1.second.mayRetry() -> 1
+            !sameTopic -> 0
+            !samePartition -> 0
+            else -> p0Offset.compareTo(p1Offset)
         }
     }
 }
